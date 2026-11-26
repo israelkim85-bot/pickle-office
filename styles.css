@@ -176,7 +176,7 @@ body.dim .composer-input{color:var(--ink)}
 }
 .msg.is-me{flex-direction:row-reverse}
 .msg.is-me .msg-body{max-width:calc(100% - 58px)}
-.msg.is-me .msg-head{flex-direction:row-reverse}
+.msg.is-me .msg-head{flex-direction:row;justify-content:flex-end;gap:8px}
 .msg.is-me .msg-bubble{
   background:linear-gradient(180deg,#a9713a,#8b5a2b);
   color:#fff;border-radius:18px 18px 6px 18px;
