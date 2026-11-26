@@ -376,6 +376,7 @@ body.dim .event-item .ev-date{color:#b5dcbf}
 }
 .db-search-input:focus{border-color:var(--brown-2);box-shadow:0 0 0 3px rgba(63,154,99,.12)}
 .db-search-input::placeholder{color:#9cae9f;font-weight:500}
+.db-search-input::-webkit-search-cancel-button,.db-search-input::-webkit-search-decoration{-webkit-appearance:none;appearance:none;display:none}
 .db-search-clear{
   flex:0 0 44px;width:44px;height:44px;border-radius:14px;border:1px solid var(--line-strong);
   background:var(--card-2);color:var(--ink-2);font-size:15px;cursor:pointer;
