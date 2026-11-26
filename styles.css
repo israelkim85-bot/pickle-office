@@ -44,6 +44,15 @@ body.dim{
 body.dim .menu,body.dim .chat{background:transparent}
 body.dim .subtab.is-active{background:#35523e}
 body.dim .composer-input{color:var(--ink)}
+/* 야간 모드: 흰 입력창이 눈에 튀지 않고 입력 글자가 보이도록 */
+body.dim .composer,body.dim .db-search-input,body.dim .db-input,body.dim .db-textarea,
+body.dim .memo-input,body.dim .modal-body input,body.dim .modal-body select,body.dim .modal-body textarea,
+body.dim .round-btn,body.dim .db-search-clear,body.dim .ghost-btn,body.dim .floor-node{
+  background:#24342b;border-color:#406045;color:var(--ink)
+}
+body.dim .db-search-input::placeholder,body.dim .db-input::placeholder,body.dim .db-textarea::placeholder,
+body.dim .composer-input::placeholder,body.dim .memo-input::placeholder{color:#8ba697}
+body.dim .msg-save{color:#9fb6a8}
 
 .app{
   width:100%;
@@ -403,9 +412,9 @@ body.dim .db-badge.chat{background:#2c3f52;color:#aecbe8}
 body.dim .db-item mark{background:#3d5c41;color:#eaf3ec}
 .db-empty{padding:22px 18px 28px;text-align:center;color:var(--ink-3);font-size:13.5px;line-height:1.75}
 .msg-save{
-  flex:0 0 auto;border:1px solid var(--line-strong);background:transparent;color:var(--ink-3);
+  flex:0 0 auto;border:1px solid var(--line-strong);background:transparent;color:var(--ink-2);
   border-radius:8px;padding:2px 6px;font-family:var(--font);font-size:10.5px;font-weight:800;
-  cursor:pointer;line-height:1.5;opacity:.75;
+  cursor:pointer;line-height:1.5;opacity:.9;
 }
 .msg-save:active{opacity:1}
 .msg-save.on{color:#2f6b4a;border-color:#bcdcc4;background:#e9f5ea;opacity:1}
