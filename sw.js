@@ -1,5 +1,5 @@
-/* 민수 AI 오피스 서비스 워커 — 앱 셸 오프라인 캐시 */
-const CACHE = 'minsoo-office-v1';
+/* 민수 AI 오피스 서비스 워커 — 앱 셸 캐시(네트워크 우선, 오프라인 대체) */
+const CACHE = 'minsoo-office-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -33,17 +33,14 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return;
 
   e.respondWith(
-    caches.match(req, { ignoreSearch: true }).then((hit) => {
-      const network = fetch(req)
-        .then((res) => {
-          if (res && res.status === 200) {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
-          }
-          return res;
-        })
-        .catch(() => hit || caches.match('./index.html'));
-      return hit || network;
-    })
+    fetch(req)
+      .then((res) => {
+        if (res && res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+        }
+        return res;
+      })
+      .catch(() => caches.match(req, { ignoreSearch: true }).then((hit) => hit || caches.match('./index.html')))
   );
 });
