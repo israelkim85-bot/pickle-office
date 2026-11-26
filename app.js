@@ -527,21 +527,25 @@
         var saved = state.archive.some(function (a) { return a.messageId === m.id; });
         return '<div class="db-item">' +
           '<div class="db-item-top"><span class="db-badge chat">대화</span>' +
-          '<span class="db-item-title">' + highlight(m.text.slice(0, 40), tokens) + (m.text.length > 40 ? '…' : '') + '</span></div>' +
+          '<span class="db-item-title">' + esc(roomLabel(m.roomId)) + ' · ' + esc(row.who) + '</span></div>' +
           '<div class="db-item-body">' + highlight(m.text, tokens) + '</div>' +
-          '<div class="db-meta"><span>' + esc(roomLabel(m.roomId)) + '</span><i>·</i><span>' + esc(row.who) + '</span><i>·</i><span>' + fmtShort(m.createdAt) + '</span>' +
+          '<div class="db-meta"><span>' + fmtShort(m.createdAt) + '</span>' +
           (saved ? '<i>·</i><span>DB 저장됨</span>' : '<i>·</i><button type="button" class="msg-save" data-save-msg="' + esc(m.id) + '">DB저장</button>') +
           '</div></div>';
       }
       var it = row.it;
+      var parts = [];
+      if (it.room) parts.push(esc(roomLabel(it.room)));
+      parts.push(esc(it.author || '대장님'));
+      var when = fmtShort(it.createdAt);
+      if (when) parts.push(when);
       return '<div class="db-item">' +
         '<button class="db-del" type="button" data-del-db="' + esc(it.id) + '" aria-label="삭제">✕</button>' +
         '<div class="db-item-top"><span class="db-badge">' + (it.source === 'chat' ? '대화저장' : '기록') + '</span>' +
         '<span class="db-item-title">' + (it.title ? highlight(it.title, tokens) : '(제목 없음)') + '</span></div>' +
         (it.body ? '<div class="db-item-body">' + highlight(it.body, tokens) + '</div>' : '') +
         ((it.tags || []).length ? '<div class="db-tags">' + it.tags.map(function (t) { return '<span class="db-tag">#' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
-        '<div class="db-meta">' + (it.room ? '<span>' + esc(roomLabel(it.room)) + '</span><i>·</i>' : '') +
-        '<span>' + esc(it.author || '대장님') + '</span><i>·</i><span>' + fmtShort(it.createdAt) + '</span></div>' +
+        '<div class="db-meta">' + parts.join('<i>·</i>') + '</div>' +
         '</div>';
     }).join('');
   }
