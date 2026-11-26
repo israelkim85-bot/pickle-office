@@ -151,9 +151,9 @@
     var pill = $('#serverPill'), stateEl = $('#serverState'), dot = $('#ownerDot'), label = $('.server-label');
     pill.classList.toggle('is-live', s === 'live');
     pill.classList.toggle('is-down', s === 'down');
-    if (s === 'live') { stateEl.textContent = 'ON'; label.textContent = 'AI 서버'; }
-    else if (s === 'down') { stateEl.textContent = 'OFF'; label.textContent = 'AI 서버'; }
-    else { stateEl.textContent = '···'; }
+    stateEl.textContent = '';
+    label.textContent = 'AI 서버';
+    pill.setAttribute('aria-label', 'AI 서버 ' + (s === 'live' ? '연결됨' : s === 'down' ? '연결 끊김' : '연결 중'));
     dot.classList.toggle('off', s !== 'live');
   }
 
