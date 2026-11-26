@@ -1,5 +1,5 @@
-/* 민수 AI 오피스 서비스 워커 — 앱 셸 캐시(네트워크 우선, 오프라인 대체) */
-const CACHE = 'minsoo-office-v2';
+/* israel kim's 뮤즈 공장 서비스 워커 — 앱 셸 캐시(네트워크 우선, 오프라인 대체) */
+const CACHE = 'muse-office-v3';
 const ASSETS = [
   './',
   './index.html',

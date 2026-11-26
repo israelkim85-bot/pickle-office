@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>민수 AI 오피스</title>
-<meta name="description" content="민수님 전용 AI 오피스 — 에이전트 회의실·지휘실·라운지 실시간 데스크">
-<meta name="theme-color" content="#f5ede0">
+<title>israel kim's 뮤즈 공장</title>
+<meta name="description" content="israel kim's 뮤즈 공장 — 에이전트 회의실·지휘실·라운지·DB 아카이브 데스크">
+<meta name="theme-color" content="#eef4ea">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="민수 AI 오피스">
+<meta name="apple-mobile-web-app-title" content="뮤즈 공장">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="icon" href="icons/icon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/icon-180.png?v=6">
+<link rel="icon" href="icons/icon-32.png?v=6" sizes="32x32">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
-<link rel="stylesheet" href="styles.css?v=5">
+<link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 
@@ -23,9 +23,9 @@
 
   <header class="topbar">
     <div class="brand">
-      <div class="avatar-wrap"><img src="icons/avatar-256.png" alt="민수 AI 오피스 로고" width="56" height="56"></div>
+      <div class="avatar-wrap"><img src="icons/avatar-256.png?v=6" alt="뮤즈 공장 로고 — 뮤" width="56" height="56"></div>
       <div class="brand-text">
-        <h1 class="brand-title">민수 AI 오피스</h1>
+        <h1 class="brand-title">israel kim's 뮤즈 공장</h1>
         <p class="brand-sub"><span class="live-dot" id="ownerDot"></span>민수님 전용</p>
       </div>
     </div>
@@ -45,7 +45,7 @@
     <button class="menu-item" data-view="dashboard" type="button"><span class="mi">📊</span>대시보드</button>
     <button class="menu-item" data-view="calendar" type="button"><span class="mi">📅</span>캘린더</button>
     <button class="menu-item" data-view="limits" type="button"><span class="mi">⚡</span>AI한도</button>
-    <button class="menu-item" data-view="lotto" type="button"><span class="mi">🎟️</span>로또</button>
+    <button class="menu-item" data-view="db" type="button"><span class="mi">🗄️</span>DB</button>
   </nav>
 
   <main class="stage" id="stage">
@@ -123,19 +123,28 @@
       <p class="foot-note">Firebase Spark 무료 한도 — 읽기 5만/일 · 쓰기 2만/일 · 저장 1GiB</p>
     </section>
 
-    <!-- 로또 -->
-    <section class="card view" id="view-lotto" hidden>
+    <!-- DB (대화·기록 아카이브) -->
+    <section class="card view" id="view-db" hidden>
       <div class="card-head">
-        <h2>🎟️ 로또</h2>
-        <p class="card-sub">번호 뽑기 · 기록 저장</p>
+        <h2>🗄️ DB</h2>
+        <p class="card-sub">회의실 대화와 기록을 모아 두고 검색합니다</p>
       </div>
-      <div class="lotto-balls" id="lottoBalls"></div>
-      <div class="lotto-actions">
-        <button class="primary-btn" id="drawBtn" type="button">번호 뽑기</button>
-        <button class="wide-btn" id="saveLottoBtn" type="button" disabled>이 번호 저장</button>
-      </div>
-      <h3 class="sub-title">저장된 번호</h3>
-      <div class="event-list" id="lottoList"></div>
+      <form class="db-search" id="dbSearchForm" autocomplete="off" role="search">
+        <input class="db-search-input" id="dbSearch" type="search" placeholder="키워드 검색 (예: 주보, 지원금, 아이디어)" enterkeyhint="search" aria-label="DB 검색">
+        <button class="db-search-clear" id="dbSearchClear" type="button" aria-label="검색어 지우기">✕</button>
+      </form>
+      <p class="db-hint" id="dbHint">대화(messages)와 아카이브(archive_db)를 함께 찾습니다.</p>
+      <form class="db-form" id="dbForm" autocomplete="off">
+        <input class="db-input" id="dbTitle" type="text" maxlength="120" placeholder="제목 또는 키워드" aria-label="제목 또는 키워드">
+        <input class="db-input" id="dbTags" type="text" maxlength="160" placeholder="태그 (쉼표 구분 · 예: 사역, 일정, 아이디어)" aria-label="태그">
+        <textarea class="db-textarea" id="dbBody" maxlength="8000" placeholder="본문 — 대화 내용을 붙여넣거나 메모를 남겨 두세요" aria-label="본문"></textarea>
+        <div class="db-form-actions">
+          <span class="db-count" id="dbCount">저장 0건</span>
+          <button class="primary-btn" type="submit">DB에 저장</button>
+        </div>
+      </form>
+      <h3 class="sub-title">아카이브</h3>
+      <div class="db-list" id="dbList"></div>
     </section>
 
     <!-- 봇 -->
@@ -185,6 +194,6 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

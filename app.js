@@ -1,4 +1,4 @@
-/* 민수 AI 오피스 — pickle-office Firestore 연동 PWA */
+/* israel kim's 뮤즈 공장 — pickle-office Firestore 연동 PWA */
 (function () {
   'use strict';
 
@@ -32,11 +32,12 @@
     memos: [],
     limits: [],
     events: [],
-    lotto: [],
+    archive: [],
+    dbQuery: '',
+    dbReady: true,
     status: 'connecting', // connecting | live | down
     calCursor: new Date(),
     calSelected: null,
-    draw: null,
     lastSnapAt: null
   };
 
@@ -251,15 +252,32 @@
       ok(); renderCalendar();
     }, fail);
 
-    db.collection('lotto').orderBy('createdAt', 'desc').limit(20).onSnapshot(function (snap) {
+    db.collection('archive_db').orderBy('createdAt', 'desc').limit(200).onSnapshot(function (snap) {
       var list = [];
       snap.forEach(function (doc) {
         var d = doc.data() || {};
-        list.push({ id: doc.id, numbers: d.numbers || [], createdAt: toDate(d.createdAt) });
+        list.push({
+          id: doc.id,
+          title: d.title || '',
+          body: d.body || '',
+          tags: Array.isArray(d.tags) ? d.tags : [],
+          source: d.source || 'manual',
+          room: d.room || '',
+          author: d.author || '',
+          messageId: d.messageId || '',
+          createdAt: toDate(d.createdAt)
+        });
       });
-      state.lotto = list;
-      ok(); renderLotto();
-    }, fail);
+      state.archive = list;
+      state.dbReady = true;
+      ok(); renderArchive(); renderChat();
+    }, function (err) {
+      console.error('archive_db error', err);
+      state.dbReady = false;
+      renderArchive();
+      if (state.view === 'db') toast('archive_db 접근 실패: ' + (err.code || '권한 확인'));
+      fail(err);
+    });
   }
 
   /* ── 공용 렌더 ── */
@@ -288,15 +306,21 @@
       box.innerHTML = '<div class="chat-empty"><strong>아직 대화가 없습니다</strong>아래 입력창에 지시를 한 줄 남겨 보세요.<br>@all 을 붙이면 전원에게 전달됩니다.</div>';
       return;
     }
+    var saved = {};
+    state.archive.forEach(function (a) { if (a.messageId) saved[a.messageId] = true; });
     var html = msgs.slice(-120).map(function (m) {
       var a = agentOf(m.agent);
       var isMe = m.agent === 'boss';
       var name = isMe ? '대장님' : (m.author || a.displayName);
+      var isSaved = !!saved[m.id];
       return '<div class="msg' + (isMe ? ' is-me' : '') + '">' +
         '<div class="msg-avatar" style="background:' + esc(a.color) + '">' + a.emoji + '</div>' +
         '<div class="msg-body">' +
         '<div class="msg-head"><span class="msg-name">' + esc(name) + '</span>' +
-        '<span class="msg-time">' + fmtTime(m.createdAt) + '</span></div>' +
+        '<span class="msg-time">' + fmtTime(m.createdAt) + '</span>' +
+        '<button class="msg-save' + (isSaved ? ' on' : '') + '" type="button" data-archive-msg="' + esc(m.id) + '" ' +
+        'aria-label="이 메시지를 DB에 저장">' + (isSaved ? '저장됨' : 'DB저장') + '</button>' +
+        '</div>' +
         '<div class="msg-bubble">' + esc(m.text) + '</div>' +
         '</div></div>';
     }).join('');
@@ -430,26 +454,128 @@
     }).join('');
   }
 
-  function ballClass(n) {
-    if (n <= 10) return 'g1';
-    if (n <= 20) return 'g2';
-    if (n <= 30) return 'g3';
-    if (n <= 40) return 'g4';
-    return 'g5';
+  /* ── DB 아카이브 ── */
+  var ROOM_NAME = { lobby: '대회의실', command: '지휘실', lounge: '라운지' };
+
+  function highlight(text, tokens) {
+    var out = esc(text);
+    if (!tokens.length) return out;
+    tokens.forEach(function (t) {
+      if (!t) return;
+      var safe = t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      try {
+        out = out.replace(new RegExp('(' + safe + ')', 'gi'), '<mark>$1</mark>');
+      } catch (e) { /* 잘못된 검색어 무시 */ }
+    });
+    return out;
   }
-  function renderLotto() {
-    var box = $('#lottoBalls');
-    var nums = state.draw;
-    box.innerHTML = (nums || [null, null, null, null, null, null]).map(function (n) {
-      return n == null ? '<div class="ball">?</div>' : '<div class="ball ' + ballClass(n) + '">' + n + '</div>';
+
+  function roomLabel(id) { return ROOM_NAME[id] || (state.rooms[id] && state.rooms[id].name) || id || ''; }
+
+  function renderArchive() {
+    var q = (state.dbQuery || '').trim();
+    var tokens = q ? q.toLowerCase().split(/\s+/).filter(Boolean) : [];
+    function hit(text) {
+      var t = String(text || '').toLowerCase();
+      for (var i = 0; i < tokens.length; i++) { if (t.indexOf(tokens[i]) < 0) return false; }
+      return true;
+    }
+
+    var rows = [];
+    state.archive.forEach(function (it) {
+      if (tokens.length && !hit(it.title + ' ' + it.body + ' ' + (it.tags || []).join(' ') + ' ' + roomLabel(it.room) + ' ' + it.author)) return;
+      rows.push({ kind: 'db', ts: it.createdAt ? it.createdAt.getTime() : 0, it: it });
+    });
+    if (tokens.length) {
+      state.messages.forEach(function (m) {
+        var a = agentOf(m.agent);
+        var who = m.agent === 'boss' ? '대장님' : (m.author || a.displayName);
+        if (!hit(m.text + ' ' + who)) return;
+        rows.push({ kind: 'msg', ts: m.createdAt ? m.createdAt.getTime() : 0, m: m, who: who });
+      });
+    }
+    rows.sort(function (a, b) { return b.ts - a.ts; });
+    var shown = rows.slice(0, 80);
+
+    var countEl = $('#dbCount');
+    if (countEl) {
+      countEl.textContent = tokens.length
+        ? shown.length + '건 찾음' + (rows.length > shown.length ? ' (최근 80)' : '')
+        : '저장 ' + state.archive.length + '건';
+    }
+    var hintEl = $('#dbHint');
+    if (hintEl) {
+      hintEl.textContent = tokens.length
+        ? '아카이브 ' + state.archive.length + '건 · 회의실 최근 대화 ' + state.messages.length + '건에서 찾았습니다.'
+        : '대화(messages)와 아카이브(archive_db)를 함께 찾습니다. 말풍선의 DB저장으로 대화를 바로 기록할 수 있어요.';
+    }
+
+    var box = $('#dbList');
+    if (!box) return;
+    if (!state.dbReady) {
+      box.innerHTML = '<div class="db-empty">archive_db를 읽지 못했습니다.<br>Firestore 보안 규칙의 archive_db 접근을 확인해 주세요.</div>';
+      return;
+    }
+    if (!shown.length) {
+      box.innerHTML = '<div class="db-empty">' + (tokens.length ? '‘' + esc(q) + '’와 맞는 기록이 없습니다.' : '저장된 기록이 없습니다.<br>위 폼에 기록하거나, 회의실 말풍선의 DB저장 버튼을 눌러 보세요.') + '</div>';
+      return;
+    }
+
+    box.innerHTML = shown.map(function (row) {
+      if (row.kind === 'msg') {
+        var m = row.m;
+        var saved = state.archive.some(function (a) { return a.messageId === m.id; });
+        return '<div class="db-item">' +
+          '<div class="db-item-top"><span class="db-badge chat">대화</span>' +
+          '<span class="db-item-title">' + highlight(m.text.slice(0, 40), tokens) + (m.text.length > 40 ? '…' : '') + '</span></div>' +
+          '<div class="db-item-body">' + highlight(m.text, tokens) + '</div>' +
+          '<div class="db-meta"><span>' + esc(roomLabel(m.roomId)) + '</span><i>·</i><span>' + esc(row.who) + '</span><i>·</i><span>' + fmtShort(m.createdAt) + '</span>' +
+          (saved ? '<i>·</i><span>DB 저장됨</span>' : '<i>·</i><button type="button" class="msg-save" data-save-msg="' + esc(m.id) + '">DB저장</button>') +
+          '</div></div>';
+      }
+      var it = row.it;
+      return '<div class="db-item">' +
+        '<button class="db-del" type="button" data-del-db="' + esc(it.id) + '" aria-label="삭제">✕</button>' +
+        '<div class="db-item-top"><span class="db-badge">' + (it.source === 'chat' ? '대화저장' : '기록') + '</span>' +
+        '<span class="db-item-title">' + (it.title ? highlight(it.title, tokens) : '(제목 없음)') + '</span></div>' +
+        (it.body ? '<div class="db-item-body">' + highlight(it.body, tokens) + '</div>' : '') +
+        ((it.tags || []).length ? '<div class="db-tags">' + it.tags.map(function (t) { return '<span class="db-tag">#' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
+        '<div class="db-meta">' + (it.room ? '<span>' + esc(roomLabel(it.room)) + '</span><i>·</i>' : '') +
+        '<span>' + esc(it.author || '대장님') + '</span><i>·</i><span>' + fmtShort(it.createdAt) + '</span></div>' +
+        '</div>';
     }).join('');
-    $('#saveLottoBtn').disabled = !nums;
-    var list = state.lotto;
-    $('#lottoList').innerHTML = list.length ? list.map(function (l) {
-      return '<div class="event-item"><span class="ev-date">' + fmtShort(l.createdAt) + '</span>' +
-        '<span class="ev-title">' + (l.numbers || []).join(' · ') + '</span>' +
-        '<button class="ev-del" data-del-lotto="' + esc(l.id) + '" aria-label="삭제">✕</button></div>';
-    }).join('') : '<div class="empty">저장된 번호가 없습니다.</div>';
+  }
+
+  function saveArchive(o) {
+    if (!db) { toast('AI 서버에 연결되지 않았습니다.'); return Promise.reject(new Error('no-db')); }
+    return db.collection('archive_db').add({
+      title: o.title || '',
+      body: o.body || '',
+      tags: o.tags || [],
+      source: o.source || 'manual',
+      room: o.room || '',
+      author: o.author || '대장님',
+      messageId: o.messageId || '',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+
+  function saveMessageToDb(id) {
+    var m = null;
+    state.messages.forEach(function (x) { if (x.id === id) m = x; });
+    if (!m) { toast('메시지를 찾지 못했습니다.'); return; }
+    var a = agentOf(m.agent);
+    var who = m.agent === 'boss' ? '대장님' : (m.author || a.displayName);
+    saveArchive({
+      title: m.text.slice(0, 40) + (m.text.length > 40 ? '…' : ''),
+      body: m.text,
+      tags: [roomLabel(m.roomId)],
+      source: 'chat',
+      room: m.roomId,
+      author: who,
+      messageId: m.id
+    }).then(function () { toast('DB에 저장했습니다.'); })
+      .catch(function (err) { toast('저장 실패: ' + ((err && err.code) || '권한 또는 네트워크 확인')); });
   }
 
   function renderMemos() {
@@ -549,7 +675,7 @@
       document.body.classList.toggle('dim');
       var dim = document.body.classList.contains('dim');
       $('#themeBtn').textContent = dim ? '🌙' : '☀️';
-      document.querySelector('meta[name="theme-color"]').setAttribute('content', dim ? '#241c16' : '#f5ede0');
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', dim ? '#101a15' : '#eef4ea');
     });
 
     /* 캘린더 */
@@ -607,27 +733,62 @@
       });
     });
 
-    /* 로또 */
-    $('#drawBtn').addEventListener('click', function () {
-      var pool = [];
-      for (var i = 1; i <= 45; i++) pool.push(i);
-      var pick = [];
-      for (var k = 0; k < 6; k++) pick.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
-      pick.sort(function (a, b) { return a - b; });
-      state.draw = pick;
-      renderLotto();
-    });
-    $('#saveLottoBtn').addEventListener('click', function () {
-      if (!state.draw || !db) return;
-      db.collection('lotto').add({ numbers: state.draw, agent: 'pickle', createdAt: firebase.firestore.FieldValue.serverTimestamp() })
-        .then(function () { toast('번호를 저장했습니다.'); })
-        .catch(function () { toast('저장 실패'); });
-    });
-    $('#lottoList').addEventListener('click', function (e) {
-      var b = e.target.closest('[data-del-lotto]');
+    /* 대화 → DB 저장 */
+    $('#chatList').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-archive-msg]');
       if (!b) return;
-      if (!confirm('이 번호를 삭제할까요?')) return;
-      db.collection('lotto').doc(b.getAttribute('data-del-lotto')).delete().catch(function () { toast('삭제 실패'); });
+      saveMessageToDb(b.getAttribute('data-archive-msg'));
+    });
+
+    /* DB */
+    $('#dbSearchForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      state.dbQuery = $('#dbSearch').value;
+      renderArchive();
+    });
+    $('#dbSearch').addEventListener('input', function () {
+      state.dbQuery = this.value;
+      renderArchive();
+    });
+    $('#dbSearchClear').addEventListener('click', function () {
+      $('#dbSearch').value = '';
+      state.dbQuery = '';
+      renderArchive();
+      $('#dbSearch').focus();
+    });
+    $('#dbForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var title = $('#dbTitle').value.trim();
+      var tagRaw = $('#dbTags').value.trim();
+      var body = $('#dbBody').value.trim();
+      if (!title && !body) { toast('제목이나 본문을 입력해 주세요.'); return; }
+      var tagList = tagRaw ? tagRaw.split(/[,#]+/).map(function (t) { return t.trim(); }).filter(Boolean) : [];
+      saveArchive({
+        title: title || body.slice(0, 40),
+        body: body,
+        tags: tagList,
+        source: 'manual',
+        author: '대장님'
+      }).then(function () {
+        $('#dbTitle').value = '';
+        $('#dbTags').value = '';
+        $('#dbBody').value = '';
+        toast('DB에 저장했습니다.');
+      }).catch(function (err) {
+        toast('저장 실패: ' + ((err && err.code) || '권한 또는 네트워크 확인'));
+      });
+    });
+    $('#dbList').addEventListener('click', function (e) {
+      var del = e.target.closest('[data-del-db]');
+      if (del) {
+        if (!confirm('이 기록을 삭제할까요?')) return;
+        db.collection('archive_db').doc(del.getAttribute('data-del-db')).delete()
+          .then(function () { toast('삭제했습니다.'); })
+          .catch(function () { toast('삭제 실패'); });
+        return;
+      }
+      var sm = e.target.closest('[data-save-msg]');
+      if (sm) saveMessageToDb(sm.getAttribute('data-save-msg'));
     });
 
     /* 메모 */
@@ -662,7 +823,7 @@
     setStatus('connecting');
     state.calSelected = dateKey(new Date());
     renderRoomMeta(); renderChat(); renderAgents(); renderFloor();
-    renderDashboard(); renderCalendar(); renderLimits(); renderLotto(); renderMemos();
+    renderDashboard(); renderCalendar(); renderLimits(); renderArchive(); renderMemos();
     if (initFirebase()) { listen(); } else { toast('Firebase를 불러오지 못했습니다.'); }
 
     window.addEventListener('online', function () { if (db) setStatus('connecting'); });
@@ -677,13 +838,13 @@
       if (!document.hidden && state.status === 'down' && db && navigator.onLine) setStatus('connecting');
     });
 
-    /* 매니페스트 바로가기: ?room=lobby|command|lounge, ?view=memos|agents */
+    /* 매니페스트 바로가기: ?room=lobby|command|lounge, ?view=memos|agents|db */
     try {
       var q = new URLSearchParams(location.search);
       var room = q.get('room');
       if (room && ['lobby', 'command', 'lounge'].indexOf(room) >= 0) { setRoom(room); showView('meeting'); }
       var view = q.get('view');
-      if (view && ['meeting', 'map', 'dashboard', 'calendar', 'limits', 'lotto', 'agents', 'memos'].indexOf(view) >= 0) showView(view);
+      if (view && ['meeting', 'map', 'dashboard', 'calendar', 'limits', 'db', 'agents', 'memos'].indexOf(view) >= 0) showView(view);
     } catch (e) { /* 구형 브라우저 */ }
   }
 

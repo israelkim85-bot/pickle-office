@@ -1,17 +1,18 @@
-"""민수 AI 오피스 앱 아이콘 생성.
+"""뮤즈 공장 앱 아이콘 생성 (초록 테마).
 
-mascot_raw.png(수달 일러스트)를 크림색 테두리의 둥근 사각 아이콘으로 합성한다.
-- 아이콘: 짙은 커피색 판 위에 수달 사진, 바깥 크림 테두리, 왼쪽 아래 데이지.
+mew_raw.png(포켓몬 뮤 스타일 일러스트)를 세이지 그린 판 위의 둥근 사각 아이콘으로 합성한다.
+- 아이콘: 밝은 세이지 판 + 안쪽 세이지 판 위에 뮤 원화, 딥 그린 헤어라인.
 - 512 / 192 / 180(apple-touch) / 32(favicon) 사이즈와 헤더용 아바타를 만든다.
 """
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw
 
-SRC = "office_web/icons/mascot_raw.png"
+SRC = "office_web/icons/mew_raw.png"
 OUT = "office_web/icons"
 
-cream = (247, 235, 214, 255)
-cream_light = (252, 246, 235, 255)
-espresso = (38, 25, 16, 255)
+# 세이지/포레스트 그린 팔레트 (styles.css와 동일 계열)
+sage_pale = (244, 250, 241)   # 바깥 판
+sage = (225, 238, 218)        # 안쪽 판
+art_bg = (205, 227, 198)      # 원화 크롭 배경(생성 이미지 판 색)
 
 
 def rounded_mask(size, radius):
@@ -21,82 +22,118 @@ def rounded_mask(size, radius):
     return m
 
 
-def build_icon(px):
-    S = px * 4  # 고해상도로 그린 뒤 축소
-    canvas = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    d = ImageDraw.Draw(canvas)
+def square_crop(img, bg):
+    """생성 이미지의 검은 모서리(안티앨리어싱 테두리 포함)를 배경색으로 채우고 정사각 크롭."""
+    from collections import deque
 
-    # 바깥: 크림 테두리 판
-    pad = int(S * 0.02)
-    d.rounded_rectangle((pad, pad, S - pad, S - pad), radius=int(S * 0.235), fill=cream)
+    img = img.convert("RGB")
+    w, h = img.size
+    px = img.load()
 
-    # 안쪽: 짙은 커피색 판
-    inset = int(S * 0.075)
-    d.rounded_rectangle(
-        (inset, inset, S - inset, S - inset), radius=int(S * 0.2), fill=espresso
+    def dark(x, y):
+        r, g, b = px[x, y]
+        return max(r, g, b) < 140 and (max(r, g, b) - min(r, g, b)) < 40
+
+    seen = bytearray(w * h)
+    q = deque()
+    for x in range(w):
+        for y in (0, h - 1):
+            if dark(x, y) and not seen[y * w + x]:
+                seen[y * w + x] = 1
+                q.append((x, y))
+    for y in range(h):
+        for x in (0, w - 1):
+            if dark(x, y) and not seen[y * w + x]:
+                seen[y * w + x] = 1
+                q.append((x, y))
+    while q:
+        x, y = q.popleft()
+        px[x, y] = bg
+        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if 0 <= nx < w and 0 <= ny < h and not seen[ny * w + nx] and dark(nx, ny):
+                seen[ny * w + nx] = 1
+                q.append((nx, ny))
+
+    side = min(w, h)
+    pad = int(side * 0.055)  # 생성 이미지 판 테두리 안쪽으로 크롭
+    return img.crop(
+        (
+            (w - side) // 2 + pad,
+            (h - side) // 2 + pad,
+            (w - side) // 2 + side - pad,
+            (h - side) // 2 + side - pad,
+        )
     )
 
-    # 수달 사진(둥근 사각 크롭)
-    art_box = int(S * 0.135)
-    art_size = S - art_box * 2
-    art = Image.open(SRC).convert("RGB")
-    # 정사각 크롭(가운데)
-    w, h = art.size
-    side = min(w, h)
-    art = art.crop(((w - side) // 2, (h - side) // 2, (w - side) // 2 + side, (h - side) // 2 + side))
-    art = art.resize((art_size, art_size), Image.LANCZOS).convert("RGBA")
-    art.putalpha(rounded_mask(art_size, int(art_size * 0.16)))
-    canvas.alpha_composite(art, (art_box, art_box))
 
-    # 데이지(왼쪽 아래)
-    cx, cy = int(S * 0.175), int(S * 0.815)
-    petal_long, petal_short = int(S * 0.072), int(S * 0.036)
-    for i in range(8):
-        import math
+ART_CACHE = {}
 
-        ang = i * math.pi / 4
-        px_ = cx + math.cos(ang) * petal_long * 0.62
-        py_ = cy + math.sin(ang) * petal_long * 0.62
-        petal = Image.new("RGBA", (petal_long * 2, petal_short * 2), (0, 0, 0, 0))
-        pd = ImageDraw.Draw(petal)
-        pd.ellipse((0, 0, petal_long * 2 - 1, petal_short * 2 - 1), fill=(255, 255, 255, 255))
-        petal = petal.rotate(-math.degrees(ang), resample=Image.BICUBIC, expand=True)
-        canvas.alpha_composite(
-            petal, (int(px_ - petal.width / 2), int(py_ - petal.height / 2))
-        )
-    r = int(S * 0.031)
-    d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(243, 196, 63, 255))
+
+def art_at(size):
+    """원하는 크기의 둥근 사각 뮤 원화(RGBA)."""
+    if size not in ART_CACHE:
+        art = square_crop(Image.open(SRC), art_bg).resize((size, size), Image.LANCZOS).convert("RGBA")
+        art.putalpha(rounded_mask(size, int(size * 0.16)))
+        ART_CACHE[size] = art
+    return ART_CACHE[size].copy()
+
+
+def build_icon(px):
+    """px 크기 아이콘. 전면이 채워진(모서리 투명 없는) 정사각 이미지."""
+    # 판은 4배 해상도로 그리고, 원화는 최종 크기에 맞춰 붙여 리샘플 링잉을 피한다.
+    S = px * 4
+    plate = Image.new("RGBA", (S, S), sage_pale + (255,))
+    d = ImageDraw.Draw(plate)
+
+    # 안쪽: 세이지 판
+    inset = int(S * 0.075)
+    d.rounded_rectangle((inset, inset, S - inset, S - inset), radius=int(S * 0.2), fill=sage + (255,))
 
     # 바깥 테두리에 부드러운 빛
-    glow = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow)
-    gd.rounded_rectangle(
-        (pad, pad, S - pad, S - pad), radius=int(S * 0.235), outline=(255, 252, 244, 120), width=max(2, S // 90)
+    pad = int(S * 0.02)
+    d.rounded_rectangle(
+        (pad, pad, S - pad, S - pad),
+        radius=int(S * 0.235),
+        outline=(255, 255, 255, 150),
+        width=max(2, S // 90),
     )
-    canvas.alpha_composite(glow)
+    plate = plate.resize((px, px), Image.LANCZOS)
 
-    return canvas.resize((px, px), Image.LANCZOS)
+    # 뮤 원화
+    art_box = int(px * 0.135)
+    art_size = px - art_box * 2
+    plate.alpha_composite(art_at(art_size), (art_box, art_box))
+
+    # 원화 테두리에 딥 그린 헤어라인
+    hair = ImageDraw.Draw(plate)
+    hair.rounded_rectangle(
+        (art_box, art_box, art_box + art_size - 1, art_box + art_size - 1),
+        radius=int(art_size * 0.16),
+        outline=(31, 61, 45, 55),
+        width=max(1, px // 260),
+    )
+    return plate
 
 
 def build_avatar(px):
-    """헤더용 둥근 아바타(수달 얼굴 크롭)."""
-    S = px * 4
-    art = Image.open(SRC).convert("RGB")
+    """헤더용 둥근 아바타(뮤 얼굴 크롭)."""
+    art = square_crop(Image.open(SRC), art_bg)
     w, h = art.size
-    # 얼굴 중심부 크롭
-    box = (int(w * 0.17), int(h * 0.06), int(w * 0.83), int(h * 0.72))
-    art = art.crop(box)
-    side = max(art.size)
-    sq = Image.new("RGB", (side, side), (243, 226, 199))
-    sq.paste(art, ((side - art.width) // 2, (side - art.height) // 2))
-    sq = sq.resize((S, S), Image.LANCZOS).convert("RGBA")
-    sq.putalpha(rounded_mask(S, S // 2))
-    base = Image.new("RGBA", (S, S), (247, 235, 214, 255))
-    base.putalpha(rounded_mask(S, S // 2))
+    # 얼굴 중심부 크롭(원화 기준 비율)
+    box = (int(w * 0.16), int(h * 0.02), int(w * 0.68), int(h * 0.54))
+    face = art.crop(box)
+    side = max(face.size)
+    sq = Image.new("RGB", (side, side), art_bg)
+    sq.paste(face, ((side - face.width) // 2, (side - face.height) // 2))
+    sq = sq.resize((px, px), Image.LANCZOS).convert("RGBA")
+    sq.putalpha(rounded_mask(px, px // 2))
+
+    base = Image.new("RGBA", (px, px), sage_pale + (255,))
+    base.putalpha(rounded_mask(px, px // 2))
     base.alpha_composite(sq)
     ring = ImageDraw.Draw(base)
-    ring.ellipse((0, 0, S - 1, S - 1), outline=(255, 252, 243, 255), width=max(2, S // 40))
-    return base.resize((px, px), Image.LANCZOS)
+    ring.ellipse((0, 0, px - 1, px - 1), outline=(255, 255, 255, 255), width=max(2, px // 40))
+    return base
 
 
 for size in (512, 192, 180, 32):
@@ -109,8 +146,8 @@ build_avatar(256).save(f"{OUT}/avatar-256.png")
 print("saved", f"{OUT}/avatar-256.png")
 
 # 마스커블 아이콘(안드로이드 적응형): 안전 영역 확보를 위해 78%로 축소해 배치
-base = build_icon(512 * 4 // 4)
-canvas = Image.new("RGBA", (512, 512), (247, 235, 214, 255))
+base = build_icon(512)
+canvas = Image.new("RGBA", (512, 512), sage_pale + (255,))
 inner = base.resize((int(512 * 0.78), int(512 * 0.78)), Image.LANCZOS)
 off = (512 - inner.width) // 2
 canvas.alpha_composite(inner, (off, off))

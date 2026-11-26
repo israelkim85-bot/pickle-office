@@ -1,7 +1,7 @@
 {
-  "name": "민수 AI 오피스",
-  "short_name": "민수오피스",
-  "description": "민수님 전용 AI 오피스 — 회의실·지휘실·라운지 실시간 데스크",
+  "name": "israel kim's 뮤즈 공장",
+  "short_name": "뮤즈 공장",
+  "description": "israel kim's 뮤즈 공장 — 회의실·지휘실·라운지·DB 아카이브 데스크",
   "lang": "ko",
   "dir": "ltr",
   "start_url": "./",
@@ -9,8 +9,8 @@
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui", "browser"],
   "orientation": "portrait",
-  "background_color": "#f5ede0",
-  "theme_color": "#f5ede0",
+  "background_color": "#eef4ea",
+  "theme_color": "#eef4ea",
   "categories": ["productivity", "business"],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
@@ -20,6 +20,6 @@
   "shortcuts": [
     { "name": "대회의실", "short_name": "대회의실", "url": "./?room=lobby" },
     { "name": "지휘실", "short_name": "지휘실", "url": "./?room=command" },
-    { "name": "메모", "short_name": "메모", "url": "./?view=memos" }
+    { "name": "DB", "short_name": "DB", "url": "./?view=db" }
   ]
 }
