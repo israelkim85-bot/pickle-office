@@ -180,26 +180,22 @@ body.dim .room-row-label.team{background:#3b3527;color:#d9c29a}
   font-size:13.5px;font-weight:600;color:var(--ink-3);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-/* 선택한 방의 멤버 칩 — 한 줄 가로 스크롤로 공간을 적게 쓴다 */
+/* 선택한 방의 멤버 칩 — 작은 칩으로 촘촘하게(칩이 많으면 자동으로 다음 줄) */
 .room-people{
-  display:flex;gap:5px;align-items:center;
+  display:flex;flex-wrap:wrap;gap:4px 4px;align-items:center;
   padding:0 20px 11px;
   border-bottom:1px solid var(--line);
-  overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;
-  -webkit-overflow-scrolling:touch;
-  overscroll-behavior-x:contain;
 }
-.room-people::-webkit-scrollbar{display:none;width:0;height:0}
 .people-count{
-  flex:0 0 auto;font-size:11px;font-weight:800;
-  padding:3px 7px;border-radius:999px;
+  flex:0 0 auto;font-size:10.5px;font-weight:800;
+  padding:2px 7px;border-radius:999px;
   background:var(--mint);color:var(--mint-ink);
 }
 .person{
   flex:0 0 auto;display:inline-flex;align-items:center;gap:3px;
-  font-size:11.5px;font-weight:700;color:var(--ink-2);
+  font-size:11px;font-weight:700;color:var(--ink-2);line-height:1.5;
   background:var(--card-2);border:1px solid var(--line);
-  border-radius:999px;padding:3px 8px;white-space:nowrap;
+  border-radius:999px;padding:2px 7px;white-space:nowrap;
 }
 body.dim .person{background:#2b3d32;border-color:#405844;color:#c2d6c7}
 .chat{
