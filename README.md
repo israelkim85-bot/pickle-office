@@ -15,7 +15,18 @@
 | `app.js` | Firebase Web SDK(compat) 실시간 연동·화면 렌더링 |
 | `manifest.json` · `sw.js` | 홈 화면 설치(PWA), 앱 셸 오프라인 캐시 |
 | `icons/` | 앱 아이콘 512/192/180/32, 마스커블, 헤더 아바타 (`make_icons.py`로 재생성) |
+| `icons/agents/` | 에이전트 17명 아바타 128×128 PNG (`app.js` `avatarImg()`가 `?v=`를 붙여 표시) |
 | `seed_firestore.py` | Firestore 초기 시드(rooms·agents·첫 인사·`_system/config`) |
+
+## 에이전트 아이콘 (`icons/agents/`)
+
+17명 전원의 아바타는 이모지 대신 이미지로 표시됩니다. 이미지 로드에 실패하면 `onerror`로 이미지가 빠지고 `AGENT_META`의 이모지가 그대로 보입니다.
+
+| 계열 | 에이전트 | 출처 |
+|---|---|---|
+| 뮤 계열 | 뮤(`muse`) 기존 뮤 원화(초록 배경) · 뮤쓰리(`muse3`) 같은 원화의 초록 배경만 하늘색으로 바꾸고 `3` 배지 · 뮤츠(`musech`) `downloads/crop_05_mewtwo.png` 얼굴 크롭 | 기존 보유 이미지 |
+| 실제 서비스 | 클(`claude`) Claude · 챗(`chatgpt`) OpenAI · 젬(`gemini`) Gemini · 큐(`cue`) Manus | 각 서비스 공식 앱 아이콘 |
+| 자체 캐릭터 | 피(`pickle`, 하늘색 배경 ㅊ 얼굴) · 키링 · 부이 · 인 · 팰리 · 하크 · 레네 · 보바 · 어 · 타운 | `tmp/make_agent_icons.py`로 생성(512px 드로잉 후 128px LANCZOS) |
 
 ## Firestore 스키마
 
