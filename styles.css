@@ -180,12 +180,18 @@ body.dim .room-row-label.team{background:#3b3527;color:#d9c29a}
   font-size:13.5px;font-weight:600;color:var(--ink-3);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-/* 선택한 방의 멤버 칩 — 작은 칩으로 촘촘하게(칩이 많으면 자동으로 다음 줄) */
+/* 선택한 방의 멤버 칩 — 한 줄로만 보이게(넘치면 가로 스와이프) */
 .room-people{
-  display:flex;flex-wrap:wrap;gap:4px 4px;align-items:center;
+  display:flex;flex-wrap:nowrap;gap:4px;align-items:center;
   padding:0 20px 11px;
   border-bottom:1px solid var(--line);
+  overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;
+  -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 20px),rgba(0,0,0,0) 100%);
+  mask-image:linear-gradient(90deg,#000 calc(100% - 20px),rgba(0,0,0,0) 100%);
 }
+.room-people::-webkit-scrollbar{display:none;width:0;height:0}
 .people-count{
   flex:0 0 auto;font-size:10.5px;font-weight:800;
   padding:2px 7px;border-radius:999px;
