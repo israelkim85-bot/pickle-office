@@ -526,7 +526,7 @@
         var m = row.m;
         var saved = state.archive.some(function (a) { return a.messageId === m.id; });
         return '<div class="db-item">' +
-          '<div class="db-item-top"><span class="db-badge chat">대화</span>' +
+          '<div class="db-item-top"><span class="db-badge talk">대화</span>' +
           '<span class="db-item-title">' + esc(roomLabel(m.roomId)) + ' · ' + esc(row.who) + '</span></div>' +
           '<div class="db-item-body">' + highlight(m.text, tokens) + '</div>' +
           '<div class="db-meta"><span>' + fmtShort(m.createdAt) + '</span>' +
