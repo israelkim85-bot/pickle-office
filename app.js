@@ -153,7 +153,7 @@
     pill.classList.toggle('is-live', s === 'live');
     pill.classList.toggle('is-down', s === 'down');
     stateEl.textContent = '';
-    label.textContent = 'AI 서버';
+    label.textContent = '서버';
     pill.setAttribute('aria-label', 'AI 서버 ' + (s === 'live' ? '연결됨' : s === 'down' ? '연결 끊김' : '연결 중'));
     dot.classList.toggle('off', s !== 'live');
   }
