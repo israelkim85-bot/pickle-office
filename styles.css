@@ -53,6 +53,10 @@ body.dim .round-btn,body.dim .db-search-clear,body.dim .ghost-btn,body.dim .floo
 body.dim .db-search-input::placeholder,body.dim .db-input::placeholder,body.dim .db-textarea::placeholder,
 body.dim .composer-input::placeholder,body.dim .memo-input::placeholder{color:#8ba697}
 body.dim .msg-save{color:#9fb6a8}
+body.dim .tab{background:#22332a;border-color:#405844;color:#c2d6c7}
+body.dim .tab.is-active{background:linear-gradient(180deg,#3d8159,#2f6b4a);border-color:#24563a;color:#fff}
+body.dim .server-pill.is-live{background:#2b4437;color:#a9d9ba}
+body.dim .stat,body.dim .memo,body.dim .act{background:var(--card-2)}
 
 .app{
   width:100%;
