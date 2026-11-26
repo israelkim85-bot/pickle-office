@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>민수 AI 오피스</title>
+<meta name="description" content="민수님 전용 AI 오피스 — 에이전트 회의실·지휘실·라운지 실시간 데스크">
+<meta name="theme-color" content="#f5ede0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="민수 AI 오피스">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-32.png" sizes="32x32">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="avatar-wrap"><img src="icons/avatar-256.png" alt="민수 AI 오피스 로고" width="56" height="56"></div>
+      <div class="brand-text">
+        <h1 class="brand-title">민수 AI 오피스</h1>
+        <p class="brand-sub"><span class="live-dot" id="ownerDot"></span>민수님 전용</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="server-pill" id="serverPill" type="button" title="pickle-office Firestore 연결 상태">
+        <span class="server-gear">⚙</span>
+        <span class="server-label">AI 서버</span>
+        <span class="server-state" id="serverState">···</span>
+      </button>
+      <button class="round-btn" id="themeBtn" type="button" aria-label="화면 톤 바꾸기">☀️</button>
+    </div>
+  </header>
+
+  <nav class="menu" aria-label="주요 메뉴">
+    <button class="menu-item" data-view="map" type="button"><span class="mi">🗺️</span>맵</button>
+    <button class="menu-item is-active" data-view="meeting" type="button"><span class="mi">💬</span>회의실</button>
+    <button class="menu-item" data-view="dashboard" type="button"><span class="mi">📊</span>대시보드</button>
+    <button class="menu-item" data-view="calendar" type="button"><span class="mi">📅</span>캘린더</button>
+    <button class="menu-item" data-view="limits" type="button"><span class="mi">⚡</span>AI한도</button>
+    <button class="menu-item" data-view="lotto" type="button"><span class="mi">🎟️</span>로또</button>
+  </nav>
+
+  <main class="stage" id="stage">
+
+    <!-- 회의실 -->
+    <section class="card view" id="view-meeting">
+      <div class="subtabs" role="tablist">
+        <button class="subtab is-active" data-room="lobby" type="button" role="tab">🏛️ 대회의실</button>
+        <button class="subtab" data-room="command" type="button" role="tab">🩵 지휘실</button>
+        <button class="subtab" data-room="lounge" type="button" role="tab">☕ 라운지</button>
+      </div>
+      <div class="room-meta" id="roomMeta">🏛️ 공모전 · 프로젝트 · ON 0명</div>
+      <div class="chat" id="chatList" aria-live="polite"></div>
+      <form class="composer" id="composer" autocomplete="off">
+        <button class="composer-plus" id="plusBtn" type="button" aria-label="빠른 지시">+</button>
+        <input class="composer-input" id="msgInput" type="text" placeholder="대장님, 지시를 한 줄로 (@all = 전원)" maxlength="500" enterkeyhint="send">
+        <button class="send-btn" type="submit">보내기</button>
+      </form>
+      <div class="quick-row" id="quickRow" hidden></div>
+    </section>
+
+    <!-- 맵 -->
+    <section class="card view" id="view-map" hidden>
+      <div class="card-head">
+        <h2>🗺️ 오피스 맵</h2>
+        <p class="card-sub">에이전트 근무 위치와 접속 상태</p>
+      </div>
+      <div class="floor" id="floorMap"></div>
+      <div class="legend">
+        <span><i class="bulb on"></i>근무 중</span>
+        <span><i class="bulb idle"></i>대기</span>
+      </div>
+    </section>
+
+    <!-- 대시보드 -->
+    <section class="card view" id="view-dashboard" hidden>
+      <div class="card-head">
+        <h2>📊 대시보드</h2>
+        <p class="card-sub">오늘의 공장 현황</p>
+      </div>
+      <div class="stat-grid" id="statGrid"></div>
+      <h3 class="sub-title">방별 메시지</h3>
+      <div class="room-bars" id="roomBars"></div>
+      <h3 class="sub-title">최근 활동</h3>
+      <div class="activity" id="activityList"></div>
+    </section>
+
+    <!-- 캘린더 -->
+    <section class="card view" id="view-calendar" hidden>
+      <div class="card-head row">
+        <div>
+          <h2>📅 캘린더</h2>
+          <p class="card-sub" id="calSub">공장 일정</p>
+        </div>
+        <div class="cal-nav">
+          <button class="ghost-btn" id="calPrev" type="button" aria-label="이전 달">‹</button>
+          <strong id="calLabel">2026년 11월</strong>
+          <button class="ghost-btn" id="calNext" type="button" aria-label="다음 달">›</button>
+        </div>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <button class="wide-btn" id="addEventBtn" type="button">+ 이 날짜에 일정 추가</button>
+      <h3 class="sub-title">이번 달 일정</h3>
+      <div class="event-list" id="eventList"></div>
+    </section>
+
+    <!-- AI한도 -->
+    <section class="card view" id="view-limits" hidden>
+      <div class="card-head">
+        <h2>⚡ AI 한도</h2>
+        <p class="card-sub">에이전트별 사용량 (직접 기록)</p>
+      </div>
+      <div class="limit-list" id="limitList"></div>
+      <button class="wide-btn" id="addLimitBtn" type="button">+ 사용량 기록하기</button>
+      <p class="foot-note">Firebase Spark 무료 한도 — 읽기 5만/일 · 쓰기 2만/일 · 저장 1GiB</p>
+    </section>
+
+    <!-- 로또 -->
+    <section class="card view" id="view-lotto" hidden>
+      <div class="card-head">
+        <h2>🎟️ 로또</h2>
+        <p class="card-sub">번호 뽑기 · 기록 저장</p>
+      </div>
+      <div class="lotto-balls" id="lottoBalls"></div>
+      <div class="lotto-actions">
+        <button class="primary-btn" id="drawBtn" type="button">번호 뽑기</button>
+        <button class="wide-btn" id="saveLottoBtn" type="button" disabled>이 번호 저장</button>
+      </div>
+      <h3 class="sub-title">저장된 번호</h3>
+      <div class="event-list" id="lottoList"></div>
+    </section>
+
+    <!-- 봇 -->
+    <section class="card view" id="view-agents" hidden>
+      <div class="card-head">
+        <h2>🤖 참여 에이전트</h2>
+        <p class="card-sub">agents 컬렉션 실시간 상태</p>
+      </div>
+      <div class="agent-list" id="agentList"></div>
+    </section>
+
+    <!-- 메모 -->
+    <section class="card view" id="view-memos" hidden>
+      <div class="card-head">
+        <h2>📁 메모</h2>
+        <p class="card-sub">memos 컬렉션에 저장됩니다</p>
+      </div>
+      <form class="memo-form" id="memoForm">
+        <input class="memo-input" id="memoInput" type="text" placeholder="한 줄 메모를 남겨 두세요" maxlength="300">
+        <button class="send-btn" type="submit">저장</button>
+      </form>
+      <div class="memo-list" id="memoList"></div>
+    </section>
+
+  </main>
+
+  <nav class="tabbar" aria-label="하단 메뉴">
+    <button class="tab" data-bottom="agents" type="button"><span class="tab-ico">🤖</span>봇</button>
+    <button class="tab is-active" data-bottom="meeting" type="button"><span class="tab-ico">💬</span>대화</button>
+    <button class="tab" data-bottom="memos" type="button"><span class="tab-ico">📁</span>메모</button>
+  </nav>
+
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-card">
+    <h3 id="modalTitle">제목</h3>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="wide-btn" id="modalCancel" type="button">취소</button>
+      <button class="primary-btn" id="modalOk" type="button">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
