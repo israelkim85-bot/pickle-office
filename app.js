@@ -71,7 +71,7 @@
   const pad = function (n) { return (n < 10 ? '0' : '') + n; };
 
   /* 에이전트 아이콘 아바타 — 아이콘 이미지를 깔고, 로드 실패 시 기존 이모지가 그대로 보인다 */
-  const AVATAR_V = '15';
+  const AVATAR_V = '15-1';
   function avatarSrc(id) { return 'icons/agents/' + encodeURIComponent(id) + '.png?v=' + AVATAR_V; }
   function avatarImg(a, cls) {
     if (!a || !a.id || a.id === 'boss') return '';
