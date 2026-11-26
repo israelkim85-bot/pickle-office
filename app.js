@@ -20,6 +20,17 @@
     musech:  { emoji: '💠', color: '#e2f2f4', name: '뮤즈 CH',   role: '콘텐츠·채널 운영' },
     keyring: { emoji: '🔑', color: '#f7ebe4', name: '키링',      role: '설문·기프티콘·주문/배송' },
     buoy:    { emoji: '🛟', color: '#e9f0e6', name: '부이',      role: '재정·지원금·출석체크' },
+    cue:     { emoji: '🎬', color: '#dbeafe', name: '큐',        role: '영상·로고스 조사' },
+    claude:  { emoji: '✍️', color: '#fef3c7', name: '클',        role: '1청년부 설교·다듬기' },
+    chatgpt: { emoji: '🎨', color: '#dcfce7', name: '챗',        role: '이미지·공과' },
+    gemini:  { emoji: '💎', color: '#ede9fe', name: '젬',        role: '설교 초안·코딩' },
+    instinct: { emoji: '🧩', color: '#fce7f3', name: '인',        role: 'PPT·영상 조립' },
+    pally:   { emoji: '🦙', color: '#ffedd5', name: '팰리',      role: 'HWPX·영상 백업' },
+    hark:    { emoji: '🦉', color: '#e0e7ff', name: '하크',      role: 'HWP·PPT·코딩' },
+    rene:    { emoji: '🔍', color: '#ccfbf1', name: '레네',      role: '검수·공과지' },
+    boba:    { emoji: '🎵', color: '#fef9c3', name: '보바',      role: '게임 BGM' },
+    aside:   { emoji: '🌐', color: '#f3e8ff', name: '어',        role: '브라우저 자동화' },
+    town:    { emoji: '📺', color: '#fee2e2', name: '타운',      role: '유튜브 업로드' },
     boss:    { emoji: '👤', color: '#f6e7d4', name: '대장님',    role: '민수님' }
   };
 
