@@ -14,10 +14,10 @@
 
   /* 컬렉션에 문서가 없을 때 쓰는 기본 표시값 */
   const AGENT_META = {
-    pickle:  { emoji: '🧡', color: '#fbe6cd', name: '솜찬대디', role: '민수님 전용 비서 · 사역·일상 총괄' },
+    pickle:  { emoji: '🧡', color: '#fbe6cd', name: '피',        role: '민수님 전용 비서 · 사역·일상 총괄' },
     muse:    { emoji: '🖥️', color: '#e6e9f7', name: '뮤즈',     role: 'PC 오케스트레이션 총괄' },
-    muse3:   { emoji: '📱', color: '#e4ecf8', name: '뮤즈 3호기', role: '스톡·이모티콘·블로그 채널' },
-    musech:  { emoji: '💠', color: '#e2f2f4', name: '뮤즈 CH',   role: '콘텐츠·채널 운영' },
+    muse3:   { emoji: '📱', color: '#e4ecf8', name: '뮤쓰리',    role: '스톡·이모티콘·블로그 채널' },
+    musech:  { emoji: '💠', color: '#e2f2f4', name: '뮤츠',      role: '콘텐츠·채널 운영' },
     keyring: { emoji: '🔑', color: '#f7ebe4', name: '키링',      role: '설문·기프티콘·주문/배송' },
     buoy:    { emoji: '🛟', color: '#e9f0e6', name: '부이',      role: '재정·지원금·출석체크' },
     cue:     { emoji: '🎬', color: '#dbeafe', name: '큐',        role: '영상·로고스 조사' },
@@ -69,6 +69,14 @@
     });
   };
   const pad = function (n) { return (n < 10 ? '0' : '') + n; };
+
+  /* 에이전트 아이콘 아바타 — 아이콘 이미지를 깔고, 로드 실패 시 기존 이모지가 그대로 보인다 */
+  const AVATAR_V = '15';
+  function avatarSrc(id) { return 'icons/agents/' + encodeURIComponent(id) + '.png?v=' + AVATAR_V; }
+  function avatarImg(a, cls) {
+    if (!a || !a.id || a.id === 'boss') return '';
+    return '<img class="av-img' + (cls ? ' ' + cls : '') + '" src="' + avatarSrc(a.id) + '" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()">';
+  }
   const dateKey = function (d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
   const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -406,7 +414,7 @@
     var html = '<span class="people-count">👥 ' + members.length + '</span>';
     html += members.map(function (id) {
       var a = agentOf(id);
-      return '<span class="person">' + a.emoji + ' ' + esc(a.displayName) + '</span>';
+      return '<span class="person">' + avatarImg(a, 'chip-img') + a.emoji + ' ' + esc(a.displayName) + '</span>';
     }).join('');
     box.innerHTML = html;
     box.hidden = false;
@@ -444,7 +452,7 @@
       var name = isMe ? '대장님' : (m.author || a.displayName);
       var isSaved = !!saved[m.id];
       return '<div class="msg' + (isMe ? ' is-me' : '') + '">' +
-        '<div class="msg-avatar" style="background:' + esc(a.color) + '">' + a.emoji + '</div>' +
+        '<div class="msg-avatar" style="background:' + esc(a.color) + '">' + a.emoji + avatarImg(a) + '</div>' +
         '<div class="msg-body">' +
         '<div class="msg-head"><span class="msg-name">' + esc(name) + '</span>' +
         '<span class="msg-time">' + fmtTime(m.createdAt) + '</span>' +
@@ -466,7 +474,7 @@
     }
     box.innerHTML = state.agents.map(function (a) {
       return '<div class="agent-card">' +
-        '<div class="agent-emoji" style="background:' + esc(a.color) + '">' + a.emoji + '</div>' +
+        '<div class="agent-emoji" style="background:' + esc(a.color) + '">' + a.emoji + avatarImg(a) + '</div>' +
         '<div><div class="agent-name">' + esc(a.displayName) + '</div>' +
         '<div class="agent-role">' + esc(a.role) + '</div></div>' +
         '<div class="agent-state' + (a.online ? ' on' : '') + '"><i></i>' + (a.online ? '근무 중' : '대기') + '</div>' +
@@ -482,7 +490,7 @@
     }
     box.innerHTML = state.agents.map(function (a) {
       return '<div class="floor-node">' +
-        '<span class="fn-emoji">' + a.emoji + '</span>' +
+        '<span class="fn-emoji" style="background:' + esc(a.color) + '">' + a.emoji + avatarImg(a) + '</span>' +
         '<div><div class="fn-name">' + esc(a.displayName) + '</div>' +
         '<div class="fn-role">' + esc(a.role) + '</div></div>' +
         '<span class="fn-dot' + (a.online ? ' on' : '') + '"></span>' +
@@ -521,7 +529,7 @@
     $('#activityList').innerHTML = recent.length ? recent.map(function (m) {
       var a = agentOf(m.agent);
       var who = m.agent === 'boss' ? '대장님' : (m.author || a.displayName);
-      return '<div class="act"><span>' + a.emoji + '</span><div style="min-width:0"><div class="act-who">' + esc(who) + '</div>' +
+      return '<div class="act"><span class="act-av" style="background:' + esc(a.color) + '">' + a.emoji + avatarImg(a) + '</span><div style="min-width:0"><div class="act-who">' + esc(who) + '</div>' +
         '<div class="act-text">' + esc(m.text.slice(0, 60)) + (m.text.length > 60 ? '…' : '') + '</div></div>' +
         '<span class="act-time">' + fmtTime(m.createdAt) + '</span></div>';
     }).join('') : '<div class="empty">아직 활동 기록이 없습니다.</div>';

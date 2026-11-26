@@ -219,6 +219,13 @@ body.dim .person{background:#2b3d32;border-color:#405844;color:#c2d6c7}
   display:grid;place-items:center;font-size:22px;
   border:1px solid rgba(255,255,255,.7);
   box-shadow:0 2px 8px rgba(52,96,68,.10);
+  position:relative;overflow:hidden;
+}
+/* 에이전트 아이콘 이미지 — 컨테이너를 꽉 채우고, 실패하면 이모지가 남는다 */
+.av-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit}
+.person .av-img.chip-img{
+  position:static;flex:0 0 16px;width:16px;height:16px;border-radius:5px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.8);
 }
 .msg-body{min-width:0;max-width:calc(100% - 58px)}
 .msg-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
@@ -341,7 +348,10 @@ body.dim .floor{background:linear-gradient(180deg,#24362b,#1f2f25)}
   box-shadow:var(--shadow-sm);
 }
 body.dim .floor-node{background:#2b3d32;border-color:#405844}
-.floor-node .fn-emoji{font-size:20px}
+.floor-node .fn-emoji{
+  font-size:20px;width:38px;height:38px;flex:0 0 38px;border-radius:12px;
+  display:grid;place-items:center;position:relative;overflow:hidden;
+}
 .fn-name{font-size:14px;font-weight:800;color:var(--ink)}
 .fn-role{font-size:11.5px;color:var(--ink-3);margin-top:1px}
 .fn-dot{width:8px;height:8px;border-radius:50%;margin-left:auto;background:#b9cbb6}
@@ -368,6 +378,7 @@ body.dim .stat b{color:#b5dcbf}
 .rb-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#7fbf96,#2f6b4a)}
 .activity{padding:0 16px 20px;display:flex;flex-direction:column;gap:8px}
 .act{display:flex;gap:9px;align-items:flex-start;background:var(--card-2);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.act .act-av{width:26px;height:26px;flex:0 0 26px;border-radius:9px;display:grid;place-items:center;font-size:14px;position:relative;overflow:hidden}
 .act .act-who{font-size:12.5px;font-weight:800;color:var(--brown-dark)}
 body.dim .act .act-who{color:#b5dcbf}
 .act .act-text{font-size:13px;color:var(--ink-2);line-height:1.5;margin-top:2px}
@@ -468,7 +479,7 @@ body.dim .db-item mark{background:#3d5c41;color:#eaf3ec}
 /* 에이전트 */
 .agent-list{padding:10px 16px 20px;display:flex;flex-direction:column;gap:9px}
 .agent-card{display:flex;align-items:center;gap:11px;background:var(--card-2);border:1px solid var(--line);border-radius:16px;padding:12px 13px}
-.agent-emoji{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-size:21px;background:#fff;border:1px solid var(--line)}
+.agent-emoji{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-size:21px;background:#fff;border:1px solid var(--line);position:relative;overflow:hidden;flex:0 0 42px}
 .agent-name{font-size:14.5px;font-weight:800;color:var(--ink)}
 .agent-role{font-size:12px;color:var(--ink-3);margin-top:2px}
 .agent-state{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--ink-3);white-space:nowrap}
