@@ -414,7 +414,7 @@
     var html = '<span class="people-count">👥 ' + members.length + '</span>';
     html += members.map(function (id) {
       var a = agentOf(id);
-      return '<span class="person">' + avatarImg(a, 'chip-img') + a.emoji + ' ' + esc(a.displayName) + '</span>';
+      return '<span class="person"><span class="chip-av" style="background:' + esc(a.color) + '">' + a.emoji + avatarImg(a, 'chip-img') + '</span>' + esc(a.displayName) + '</span>';
     }).join('');
     box.innerHTML = html;
     box.hidden = false;
@@ -449,7 +449,7 @@
     var html = msgs.slice(-120).map(function (m) {
       var a = agentOf(m.agent);
       var isMe = m.agent === 'boss';
-      var name = isMe ? '대장님' : (m.author || a.displayName);
+      var name = isMe ? '대장님' : (a.displayName || m.author);
       var isSaved = !!saved[m.id];
       return '<div class="msg' + (isMe ? ' is-me' : '') + '">' +
         '<div class="msg-avatar" style="background:' + esc(a.color) + '">' + a.emoji + avatarImg(a) + '</div>' +
@@ -528,7 +528,7 @@
     var recent = state.messages.slice(-6).reverse();
     $('#activityList').innerHTML = recent.length ? recent.map(function (m) {
       var a = agentOf(m.agent);
-      var who = m.agent === 'boss' ? '대장님' : (m.author || a.displayName);
+      var who = m.agent === 'boss' ? '대장님' : (a.displayName || m.author);
       return '<div class="act"><span class="act-av" style="background:' + esc(a.color) + '">' + a.emoji + avatarImg(a) + '</span><div style="min-width:0"><div class="act-who">' + esc(who) + '</div>' +
         '<div class="act-text">' + esc(m.text.slice(0, 60)) + (m.text.length > 60 ? '…' : '') + '</div></div>' +
         '<span class="act-time">' + fmtTime(m.createdAt) + '</span></div>';
@@ -627,7 +627,7 @@
     if (tokens.length) {
       state.messages.forEach(function (m) {
         var a = agentOf(m.agent);
-        var who = m.agent === 'boss' ? '대장님' : (m.author || a.displayName);
+        var who = m.agent === 'boss' ? '대장님' : (a.displayName || m.author);
         if (!hit(m.text + ' ' + who)) return;
         rows.push({ kind: 'msg', ts: m.createdAt ? m.createdAt.getTime() : 0, m: m, who: who });
       });
