@@ -34,9 +34,18 @@
     boss:    { emoji: '👤', color: '#f6e7d4', name: '대장님',    role: '민수님' }
   };
 
+  /* 회의실 기본 방 메타 — rooms 컬렉션을 아직 못 읽었을 때(오프라인·첫 로딩)만 사용 */
+  const COMMON_ROOM_IDS = ['lobby', 'command', 'lounge'];
+  const ROOM_FALLBACK = [
+    { id: 'lobby',   emoji: '🏛️', name: '대회의실', description: '공모전 · 프로젝트',      order: 1 },
+    { id: 'command', emoji: '🩵', name: '지휘실',   description: '실무 지휘 · 즉시 실행', order: 2 },
+    { id: 'lounge',  emoji: '☕', name: '라운지',   description: '잡담 · 아이디어',        order: 3 }
+  ];
+
   const state = {
     view: 'meeting',
     room: 'lobby',
+    pendingRoom: null,
     rooms: {},
     agents: [],
     messages: [],
@@ -187,7 +196,8 @@
       var map = {};
       snap.forEach(function (doc) { map[doc.id] = doc.data() || {}; });
       state.rooms = map;
-      ok(); renderRoomMeta(); renderDashboard();
+      ensureRoom();
+      ok(); renderSubtabs(); renderRoomMeta(); renderRoomPeople(); renderChat(); renderDashboard();
     }, fail);
 
     db.collection('agents').onSnapshot(function (snap) {
@@ -207,7 +217,7 @@
       });
       list.sort(function (a, b) { return a.order - b.order; });
       state.agents = list;
-      ok(); renderRoomMeta(); renderAgents(); renderFloor(); renderDashboard();
+      ok(); renderRoomMeta(); renderRoomPeople(); renderAgents(); renderFloor(); renderDashboard();
     }, fail);
 
     db.collection('messages').orderBy('createdAt', 'desc').limit(300).onSnapshot(function (snap) {
@@ -302,11 +312,120 @@
   function onlineCount() { return state.agents.filter(function (a) { return a.online; }).length; }
 
   function renderRoomMeta() {
+    var r = roomInfo(state.room);
+    var desc = r.description ? ' · ' + r.description : '';
+    $('#roomMeta').textContent = r.emoji + ' ' + r.name + desc + ' · ON ' + onlineCount() + '명';
+  }
+
+  /* ── 회의실 방 목록(rooms 컬렉션 기반 동적 렌더) ── */
+  function roomList() {
+    var list = [];
+    Object.keys(state.rooms || {}).forEach(function (id) {
+      var r = state.rooms[id] || {};
+      var ord = typeof r.order === 'number' ? r.order : Number(r.order);
+      list.push({
+        id: id,
+        emoji: r.emoji || '💬',
+        name: r.name || id,
+        description: r.description || '',
+        order: isNaN(ord) ? 99 : ord
+      });
+    });
+    if (!list.length) {
+      return ROOM_FALLBACK.map(function (r) {
+        return { id: r.id, emoji: r.emoji, name: r.name, description: r.description, order: r.order };
+      });
+    }
+    list.sort(function (a, b) {
+      if (a.order !== b.order) return a.order - b.order;
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    });
+    return list;
+  }
+
+  function roomInfo(id) {
+    var r = (state.rooms || {})[id];
+    if (r) return { id: id, emoji: r.emoji || '💬', name: r.name || id, description: r.description || '' };
+    var fb = null;
+    ROOM_FALLBACK.forEach(function (x) { if (x.id === id) fb = x; });
+    if (fb) return { id: fb.id, emoji: fb.emoji, name: fb.name, description: fb.description };
+    return { id: id, emoji: '💬', name: id, description: '' };
+  }
+
+  /* 공용 방(lobby·command·lounge) / 팀별 방(그 외) 두 줄로 나눈다 */
+  function roomGroups() {
+    var groups = { common: [], team: [] };
+    roomList().forEach(function (r) {
+      (COMMON_ROOM_IDS.indexOf(r.id) >= 0 ? groups.common : groups.team).push(r);
+    });
+    return groups;
+  }
+
+  function subtabHTML(r) {
+    var active = r.id === state.room;
+    return '<button class="subtab' + (active ? ' is-active' : '') + '" data-room="' + esc(r.id) + '" type="button" role="tab" aria-selected="' + active + '">' +
+      esc(r.emoji) + ' ' + esc(r.name) + '</button>';
+  }
+
+  var subSig = '';
+  function renderSubtabs() {
+    var g = roomGroups();
+    var list = g.common.concat(g.team);
+    var sig = state.room + '|' + list.map(function (r) { return r.id + ':' + r.emoji + ':' + r.name; }).join('|');
+    if (sig === subSig) return;
+    subSig = sig;
+    var commonBox = $('#subtabsCommon'), teamBox = $('#subtabsTeam'), teamRow = $('#teamRow');
+    if (!commonBox || !teamBox) return;
+    commonBox.innerHTML = g.common.map(subtabHTML).join('');
+    teamBox.innerHTML = g.team.map(subtabHTML).join('');
+    if (teamRow) teamRow.hidden = !g.team.length;
+    scrollActiveSubtab();
+  }
+
+  function scrollActiveSubtab() {
+    var btn = document.querySelector('.subtab.is-active');
+    if (!btn || !btn.parentElement) return;
+    var box = btn.parentElement;
+    if (box.scrollWidth <= box.clientWidth + 2) return;
+    var target = btn.offsetLeft - (box.clientWidth - btn.offsetWidth) / 2;
+    if (target < 0) target = 0;
+    try { box.scrollTo({ left: target, behavior: 'smooth' }); } catch (e) { box.scrollLeft = target; }
+  }
+
+  /* 선택한 방의 멤버 칩 — 한 줄 가로 스크롤로 컴팩트하게 */
+  function renderRoomPeople() {
+    var box = $('#roomPeople');
+    if (!box) return;
     var r = state.rooms[state.room] || {};
-    var emoji = r.emoji || (state.room === 'lobby' ? '🏛️' : state.room === 'command' ? '🩵' : '☕');
-    var name = r.name || (state.room === 'lobby' ? '대회의실' : state.room === 'command' ? '지휘실' : '라운지');
-    var desc = r.description || '공모전 · 프로젝트';
-    $('#roomMeta').textContent = emoji + ' ' + name + ' · ' + desc + ' · ON ' + onlineCount() + '명';
+    var members = Array.isArray(r.members) ? r.members : [];
+    if (!members.length) {
+      box.hidden = true;
+      box.innerHTML = '';
+      return;
+    }
+    var html = '<span class="people-count">👥 ' + members.length + '</span>';
+    html += members.map(function (id) {
+      var a = agentOf(id);
+      return '<span class="person">' + a.emoji + ' ' + esc(a.displayName) + '</span>';
+    }).join('');
+    box.innerHTML = html;
+    box.hidden = false;
+  }
+
+  /* rooms 목록에 없는 방이 선택된 상태면 첫 방으로 되돌린다 */
+  function ensureRoom() {
+    var ids = roomList().map(function (r) { return r.id; });
+    if (!ids.length) return;
+    if (state.pendingRoom) {
+      if (ids.indexOf(state.pendingRoom) >= 0) state.room = state.pendingRoom;
+      state.pendingRoom = null;
+    }
+    if (ids.indexOf(state.room) < 0) state.room = ids[0];
+    $$('.subtab').forEach(function (b) {
+      var on = b.getAttribute('data-room') === state.room;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
   }
 
   function renderChat() {
@@ -384,12 +503,12 @@
       return '<div class="stat"><b>' + esc(s.n) + '</b><span>' + esc(s.l) + '</span></div>';
     }).join('');
 
-    var rooms = ['lobby', 'command', 'lounge'];
+    var rooms = roomList();
     var max = 1;
     var counts = rooms.map(function (r) {
-      var c = state.messages.filter(function (m) { return m.roomId === r; }).length;
+      var c = state.messages.filter(function (m) { return m.roomId === r.id; }).length;
       if (c > max) max = c;
-      return { id: r, c: c };
+      return { id: r.id, c: c };
     });
     $('#roomBars').innerHTML = counts.map(function (x) {
       var r = state.rooms[x.id] || {};
@@ -481,7 +600,7 @@
     return out;
   }
 
-  function roomLabel(id) { return ROOM_NAME[id] || (state.rooms[id] && state.rooms[id].name) || id || ''; }
+  function roomLabel(id) { return (state.rooms[id] && state.rooms[id].name) || ROOM_NAME[id] || id || ''; }
 
   function renderArchive() {
     var q = (state.dbQuery || '').trim();
@@ -619,8 +738,13 @@
 
   function setRoom(room) {
     state.room = room;
-    $$('.subtab').forEach(function (b) { b.classList.toggle('is-active', b.getAttribute('data-room') === room); });
-    renderRoomMeta(); renderChat();
+    $$('.subtab').forEach(function (b) {
+      var on = b.getAttribute('data-room') === room;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    renderRoomMeta(); renderRoomPeople(); renderChat();
+    scrollActiveSubtab();
   }
 
   /* ── 쓰기 ── */
@@ -655,8 +779,13 @@
     $$('.tab').forEach(function (b) {
       b.addEventListener('click', function () { showView(b.getAttribute('data-bottom')); });
     });
-    $$('.subtab').forEach(function (b) {
-      b.addEventListener('click', function () { setRoom(b.getAttribute('data-room')); });
+    $$('.room-row').forEach(function (row) {
+      row.addEventListener('click', function (e) {
+        var b = e.target.closest('.subtab');
+        if (!b) return;
+        var id = b.getAttribute('data-room');
+        if (id) setRoom(id);
+      });
     });
 
     $('#composer').addEventListener('submit', function (e) {
@@ -837,7 +966,7 @@
     bind();
     setStatus('connecting');
     state.calSelected = dateKey(new Date());
-    renderRoomMeta(); renderChat(); renderAgents(); renderFloor();
+    renderRoomMeta(); renderRoomPeople(); renderSubtabs(); renderChat(); renderAgents(); renderFloor();
     renderDashboard(); renderCalendar(); renderLimits(); renderArchive(); renderMemos();
     if (initFirebase()) { listen(); } else { toast('Firebase를 불러오지 못했습니다.'); }
 
@@ -853,11 +982,15 @@
       if (!document.hidden && state.status === 'down' && db && navigator.onLine) setStatus('connecting');
     });
 
-    /* 매니페스트 바로가기: ?room=lobby|command|lounge, ?view=memos|agents|db */
+    /* 매니페스트 바로가기: ?room=<방 id>, ?view=memos|agents|db */
     try {
       var q = new URLSearchParams(location.search);
       var room = q.get('room');
-      if (room && ['lobby', 'command', 'lounge'].indexOf(room) >= 0) { setRoom(room); showView('meeting'); }
+      if (room && /^[A-Za-z0-9_-]{1,40}$/.test(room)) {
+        state.pendingRoom = room;
+        setRoom(room);
+        showView('meeting');
+      }
       var view = q.get('view');
       if (view && ['meeting', 'map', 'dashboard', 'calendar', 'limits', 'db', 'agents', 'memos'].indexOf(view) >= 0) showView(view);
     } catch (e) { /* 구형 브라우저 */ }

@@ -143,26 +143,65 @@ body.dim .stat,body.dim .memo,body.dim .act{background:var(--card-2)}
 .card-head h2{margin:0;font-size:18px;font-weight:800;letter-spacing:-.3px}
 .card-sub{margin:4px 0 0;font-size:13px;color:var(--ink-3)}
 
-/* 회의실 */
+/* 회의실 — 공용/팀별 두 줄 방 탭(rooms 컬렉션 동적 렌더) */
+.rooms{margin:12px 14px 0;display:flex;flex-direction:column;gap:6px}
+.room-row{display:flex;align-items:center;gap:6px;min-width:0}
+.room-row-label{
+  flex:0 0 auto;font-size:10.5px;font-weight:800;letter-spacing:-.3px;
+  color:var(--mint-ink);background:var(--mint);
+  border-radius:8px;padding:4px 6px;line-height:1.35;text-align:center;
+}
+.room-row-label.team{color:#8a6a3f;background:#f6eddd}
+body.dim .room-row-label{background:#2d4338;color:#a8c9b4}
+body.dim .room-row-label.team{background:#3b3527;color:#d9c29a}
 .subtabs{
-  display:flex;gap:4px;
-  margin:14px 14px 0;
+  flex:1;min-width:0;display:flex;gap:4px;
   background:var(--card-2);
   border-radius:999px;
-  padding:5px;
+  padding:4px;
+  overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:none;-ms-overflow-style:none;
+  -webkit-overflow-scrolling:touch;
+  scroll-behavior:smooth;
+  scroll-snap-type:x proximity;
+  overscroll-behavior-x:contain;
 }
+.subtabs::-webkit-scrollbar{display:none;width:0;height:0}
 .subtab{
-  flex:1;border:0;background:transparent;border-radius:999px;
-  padding:11px 4px;
-  font-family:var(--font);font-size:15px;font-weight:700;color:var(--ink-2);
-  cursor:pointer;white-space:nowrap;
+  flex:0 0 auto;border:0;background:transparent;border-radius:999px;
+  padding:9px 12px;
+  font-family:var(--font);font-size:13.5px;font-weight:700;color:var(--ink-2);
+  cursor:pointer;white-space:nowrap;scroll-snap-align:center;
+  transition:background .16s,color .16s,box-shadow .16s;
 }
 .subtab.is-active{background:#fff;color:var(--ink);box-shadow:0 3px 10px rgba(52,96,68,.14)}
 .room-meta{
-  padding:16px 20px 10px;
-  font-size:14px;font-weight:600;color:var(--ink-3);
-  border-bottom:1px solid var(--line);
+  padding:13px 20px 7px;
+  font-size:13.5px;font-weight:600;color:var(--ink-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
+/* 선택한 방의 멤버 칩 — 한 줄 가로 스크롤로 공간을 적게 쓴다 */
+.room-people{
+  display:flex;gap:5px;align-items:center;
+  padding:0 20px 11px;
+  border-bottom:1px solid var(--line);
+  overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;
+}
+.room-people::-webkit-scrollbar{display:none;width:0;height:0}
+.people-count{
+  flex:0 0 auto;font-size:11px;font-weight:800;
+  padding:3px 7px;border-radius:999px;
+  background:var(--mint);color:var(--mint-ink);
+}
+.person{
+  flex:0 0 auto;display:inline-flex;align-items:center;gap:3px;
+  font-size:11.5px;font-weight:700;color:var(--ink-2);
+  background:var(--card-2);border:1px solid var(--line);
+  border-radius:999px;padding:3px 8px;white-space:nowrap;
+}
+body.dim .person{background:#2b3d32;border-color:#405844;color:#c2d6c7}
 .chat{
   flex:1;
   overflow-y:auto;
@@ -486,5 +525,9 @@ body.dim .memo{background:linear-gradient(180deg,#2b3d32,#24342b)}
   .server-label{display:none}
   .round-btn{width:38px;height:38px;border-radius:12px;font-size:15px}
   .menu-item{font-size:15px;padding:12px 2px}
-  .subtab{font-size:14px;padding:10px 2px}
+  .subtab{font-size:12.5px;padding:8px 10px}
+  .room-row-label{font-size:10px;padding:3px 5px}
+  .rooms{gap:5px}
+  .room-meta{font-size:12.5px;padding:11px 16px 6px}
+  .room-people{padding:0 16px 10px}
 }
