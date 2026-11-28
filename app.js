@@ -58,7 +58,9 @@
     status: 'connecting', // connecting | live | down
     calCursor: new Date(),
     calSelected: null,
-    lastSnapAt: null
+    lastSnapAt: null,
+    unread: {},   // 방별 새 글 수(마지막 확인 이후)
+    roomSeen: {}  // 방별 마지막으로 본 시각(ISO)
   };
 
   const $ = (s, r) => (r || document).querySelector(s);
@@ -228,28 +230,8 @@
       ok(); renderRoomMeta(); renderRoomPeople(); renderAgents(); renderFloor(); renderDashboard();
     }, fail);
 
-    db.collection('messages').orderBy('createdAt', 'desc').limit(300).onSnapshot(function (snap) {
-      var list = [];
-      snap.forEach(function (doc) {
-        var d = doc.data() || {};
-        list.push({
-          id: doc.id,
-          roomId: d.roomId || 'lobby',
-          agent: d.agent || 'muse',
-          author: d.author || '',
-          text: d.text || '',
-          type: d.type || 'text',
-          createdAt: toDate(d.createdAt)
-        });
-      });
-      list.sort(function (a, b) {
-        var ta = a.createdAt ? a.createdAt.getTime() : Date.now();
-        var tb = b.createdAt ? b.createdAt.getTime() : Date.now();
-        return ta - tb;
-      });
-      state.messages = list;
-      ok(); renderChat(); renderDashboard();
-    }, fail);
+    /* messages 는 since 증분 읽기 + 로컬 캐시로 따로 붙인다(loadMessages) */
+    loadMessages();
 
     db.collection('memos').orderBy('createdAt', 'desc').limit(60).onSnapshot(function (snap) {
       var list = [];
@@ -306,6 +288,247 @@
       renderArchive();
       if (state.view === 'db') toast('archive_db 접근 실패: ' + (err.code || '권한 확인'));
       fail(err);
+    });
+  }
+
+  /* ── 메시지 읽기: since 증분 읽기 + 기기 로컬 캐시 ──
+     - 처음 켤 때만 최근 대화를 한 번 받아 기기에 저장한다.
+     - 그 뒤로는 '마지막으로 읽은 시각(since)' 이후 새 글만 묻는다(전체를 다시 받지 않음).
+     - 화면에 먼저 캐시를 띄우고, 뒤에서 새 글만 채워 넣는다. */
+  const MSG_CACHE_KEY = 'office.messages.v1';
+  const MSG_KEEP = 300;   // 기기에 남겨 두는 최근 대화 수
+  const MSG_COLD = 300;   // 캐시가 없는 첫 실행에서만 가져오는 최근 대화 수(기존과 같은 깊이)
+  const MSG_BATCH = 100;  // since 이후 한 번에 가져오는 최대 건수(넘으면 이어서)
+
+  var msgSince = null;        // Date — 마지막으로 읽은 글 시각
+  var unsubMessages = null;   // 실시간 수신 해지 함수
+  var checkBusy = false;
+  var debugLog = [];
+
+  function dbg(entry) { debugLog.push(entry); if (debugLog.length > 40) debugLog.shift(); }
+
+  function byCreatedAt(a, b) {
+    return (a.createdAt ? a.createdAt.getTime() : 0) - (b.createdAt ? b.createdAt.getTime() : 0);
+  }
+  function msgFromDoc(doc) {
+    var d = doc.data() || {};
+    return {
+      id: doc.id,
+      roomId: d.roomId || 'lobby',
+      agent: d.agent || 'muse',
+      author: d.author || '',
+      text: d.text || '',
+      type: d.type || 'text',
+      createdAt: toDate(d.createdAt)
+    };
+  }
+
+  function loadMsgCache() {
+    try {
+      var raw = localStorage.getItem(MSG_CACHE_KEY);
+      if (!raw) return false;
+      var obj = JSON.parse(raw);
+      if (!obj || !Array.isArray(obj.messages) || !obj.messages.length) return false;
+      var list = [];
+      obj.messages.forEach(function (m) {
+        var d = toDate(m.t);
+        if (!m || !m.id || !d) return;
+        list.push({ id: m.id, roomId: m.roomId || 'lobby', agent: m.agent || 'muse', author: m.author || '', text: m.text || '', type: m.type || 'text', createdAt: d });
+      });
+      if (!list.length) return false;
+      list.sort(byCreatedAt);
+      state.messages = list;
+      state.roomSeen = obj.roomSeen || {};
+      var s = toDate(obj.since);
+      msgSince = s || (list.length ? list[list.length - 1].createdAt : null);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function saveMsgCache() {
+    try {
+      var keep = state.messages.filter(function (m) { return !m.pending && m.createdAt; }).slice(-MSG_KEEP).map(function (m) {
+        return { id: m.id, roomId: m.roomId, agent: m.agent, author: m.author, text: m.text, type: m.type, t: m.createdAt.toISOString() };
+      });
+      localStorage.setItem(MSG_CACHE_KEY, JSON.stringify({
+        since: msgSince ? msgSince.toISOString() : null,
+        roomSeen: state.roomSeen,
+        messages: keep
+      }));
+    } catch (e) { /* 저장 공간 부족·사생활 보호 모드 */ }
+  }
+
+  /* 새로 받은 글을 기존 목록에 합치고 since를 앞으로 옮긴다. 새로 늘어난 건수를 돌려준다. */
+  function mergeMessages(list) {
+    if (!list || !list.length) return 0;
+    var map = {}, added = 0;
+    state.messages.forEach(function (m) { map[m.id] = m; });
+    list.forEach(function (m) {
+      if (!m.createdAt) return;
+      if (!map[m.id]) added++;
+      map[m.id] = m;
+      if (!msgSince || m.createdAt > msgSince) msgSince = m.createdAt;
+      if (m.agent === 'boss') dropEchoOf(m, map);
+    });
+    state.messages = Object.keys(map).map(function (k) { return map[k]; }).sort(byCreatedAt);
+    if (state.messages.length > 800) state.messages = state.messages.slice(-800);
+    computeUnread();
+    return added;
+  }
+
+  /* 방별 새 글 수 — 그 방을 보고 있는 중이면 0 */
+  function computeUnread() {
+    var u = {};
+    if (state.room) state.roomSeen[state.room] = new Date().toISOString();
+    state.messages.forEach(function (m) {
+      if (m.pending || !m.createdAt) return;
+      if (m.roomId === state.room) return;
+      var seen = toDate(state.roomSeen[m.roomId]);
+      if (seen && m.createdAt <= seen) return;
+      u[m.roomId] = (u[m.roomId] || 0) + 1;
+    });
+    state.unread = u;
+  }
+
+  function markRoomSeen(roomId) {
+    state.roomSeen[roomId] = new Date().toISOString();
+  }
+
+  /* since 이후 글만 가져온다(없으면 처음 한 번 최근 대화) */
+  function querySince(since, limit) {
+    var col = db.collection('messages');
+    var q = since
+      ? col.where('createdAt', '>', since).orderBy('createdAt', 'asc').limit(limit)
+      : col.orderBy('createdAt', 'desc').limit(limit);
+    return q.get().then(function (snap) {
+      var list = [];
+      snap.forEach(function (doc) { list.push(msgFromDoc(doc)); });
+      list.sort(byCreatedAt);
+      dbg({ kind: since ? 'since' : 'cold', since: since ? since.toISOString() : null, limit: limit, got: list.length, at: new Date().toISOString() });
+      return list;
+    });
+  }
+
+  /* 한 묶음(MSG_BATCH)씩 이어서 — 묶음이 꽉 찼으면 아직 남은 글이 있다 */
+  function catchUp(batch, total) {
+    total = total || 0;
+    return querySince(msgSince, batch).then(function (list) {
+      total += mergeMessages(list);
+      if (list.length >= batch) return catchUp(batch, total);
+      return total;
+    });
+  }
+
+  /* 같은 확인이 겹치지 않게(실시간 알림이 몰릴 때 중복 조회 방지) */
+  var catchingUp = false;
+  function safeCatchUp(batch) {
+    if (catchingUp) return Promise.resolve(-1);
+    catchingUp = true;
+    return catchUp(batch).then(function (n) {
+      catchingUp = false;
+      return n;
+    }, function (err) {
+      catchingUp = false;
+      throw err;
+    });
+  }
+
+  function loadMessages() {
+    var hadCache = loadMsgCache();
+    var firstRun = !hadCache;
+    if (hadCache) { renderChat(); renderDashboard(); }
+    safeCatchUp(firstRun ? MSG_COLD : MSG_BATCH).then(function () {
+      if (firstRun) {
+        var now = new Date().toISOString();
+        state.messages.forEach(function (m) { if (!state.roomSeen[m.roomId]) state.roomSeen[m.roomId] = now; });
+        computeUnread();
+      }
+      markLive();
+      renderChat(); renderDashboard(); renderSubtabs(); saveMsgCache();
+      listenNew();
+    }).catch(function (err) {
+      console.error('messages load error', err);
+      if (!hadCache) setStatus('down');
+      renderChat(); renderDashboard();
+      listenNew();
+    });
+  }
+
+  /* since 이후 새 글만 실시간으로 듣는다(전체 목록을 다시 듣지 않음) */
+  function listenNew() {
+    if (!db) return;
+    if (unsubMessages) { try { unsubMessages(); } catch (e) { /* 무시 */ } unsubMessages = null; }
+    var base = msgSince;
+    var col = db.collection('messages');
+    var q = base
+      ? col.where('createdAt', '>', base).orderBy('createdAt', 'asc').limit(MSG_BATCH)
+      : col.orderBy('createdAt', 'asc').limit(MSG_BATCH);
+    unsubMessages = q.onSnapshot(function (snap) {
+      var list = [];
+      snap.forEach(function (doc) { list.push(msgFromDoc(doc)); });
+      var n = mergeMessages(list);
+      markLive();
+      if (!base && msgSince) {
+        // 처음 열었을 때 비어 있던 방 — 첫 글이 오면 창을 since 기준으로 다시 연다
+        listenNew();
+      }
+      if (n) {
+        renderChat(); renderDashboard(); renderSubtabs(); saveMsgCache();
+      }
+      if (n > 0 && list.length >= MSG_BATCH) {
+        // 한 묶음이 꽉 찼고 새 글이 있었다면 더 남아 있을 수 있다 → 이어 받고 창을 새로 연다
+        safeCatchUp(MSG_BATCH).then(function (m) {
+          if (m < 0) return; // 다른 확인이 이미 이어 받고 있다
+          renderChat(); renderDashboard(); renderSubtabs(); saveMsgCache(); listenNew();
+        }).catch(function () { /* 다음 확인 때 다시 시도 */ });
+      }
+    }, function (err) {
+      console.error('messages listen error', err);
+      if (state.status !== 'live') setStatus('down');
+    });
+  }
+
+  function markLive() { setStatus('live'); state.lastSnapAt = Date.now(); }
+
+  /* '확인' 버튼·화면 복귀 시 — 전체가 아니라 since 이후만 확인 */
+  function checkNew(silent) {
+    if (!db) { if (!silent) toast('AI 서버에 연결되지 않았습니다.'); return; }
+    if (checkBusy) return;
+    checkBusy = true;
+    safeCatchUp(MSG_BATCH).then(function (n) {
+      checkBusy = false;
+      markLive();
+      renderChat(); renderDashboard(); renderSubtabs(); saveMsgCache();
+      if (n < 0) { if (!silent) toast('이미 확인 중입니다.'); return; }
+      if (n > 0) toast('새 글 ' + n + '건을 확인했습니다.');
+      else if (!silent) toast('새 글 없음');
+    }).catch(function (err) {
+      checkBusy = false;
+      console.error('check error', err);
+      if (!silent) toast('확인 실패: ' + ((err && err.code) || '네트워크 확인'));
+    });
+  }
+
+  /* 보내는 중 말풍선 — 서버 시각이 붙기 전에도 바로 보이게 */
+  var echoSeq = 0;
+  function addEcho(roomId, text) {
+    var echo = {
+      id: 'local-' + (++echoSeq), roomId: roomId, agent: 'boss', author: '대장님',
+      text: text, type: 'text', createdAt: new Date(), pending: true
+    };
+    state.messages.push(echo);
+    renderChat();
+    return echo.id;
+  }
+  function dropEcho(id) {
+    state.messages = state.messages.filter(function (m) { return m.id !== id; });
+  }
+  function dropEchoOf(real, map) {
+    Object.keys(map).forEach(function (k) {
+      var m = map[k];
+      if (!m || !m.pending || m.roomId !== real.roomId || m.text !== real.text) return;
+      if (m.createdAt && real.createdAt && Math.abs(real.createdAt.getTime() - m.createdAt.getTime()) > 120000) return;
+      delete map[k];
     });
   }
 
@@ -371,15 +594,19 @@
 
   function subtabHTML(r) {
     var active = r.id === state.room;
+    var n = active ? 0 : (state.unread[r.id] || 0);
+    var badge = n ? '<span class="subtab-badge" aria-label="새 글 ' + n + '건">' + (n > 99 ? '99+' : n) + '</span>' : '';
     return '<button class="subtab' + (active ? ' is-active' : '') + '" data-room="' + esc(r.id) + '" type="button" role="tab" aria-selected="' + active + '">' +
-      esc(r.emoji) + ' ' + esc(r.name) + '</button>';
+      esc(r.emoji) + ' ' + esc(r.name) + badge + '</button>';
   }
 
   var subSig = '';
   function renderSubtabs() {
     var g = roomGroups();
     var list = g.common.concat(g.team);
-    var sig = state.room + '|' + list.map(function (r) { return r.id + ':' + r.emoji + ':' + r.name; }).join('|');
+    var sig = state.room + '|' + list.map(function (r) {
+      return r.id + ':' + r.emoji + ':' + r.name + ':' + (state.unread[r.id] || 0);
+    }).join('|');
     if (sig === subSig) return;
     subSig = sig;
     var commonBox = $('#subtabsCommon'), teamBox = $('#subtabsTeam'), teamRow = $('#teamRow');
@@ -451,13 +678,13 @@
       var isMe = m.agent === 'boss';
       var name = isMe ? '대장님' : (a.displayName || m.author);
       var isSaved = !!saved[m.id];
-      return '<div class="msg' + (isMe ? ' is-me' : '') + '">' +
+      return '<div class="msg' + (isMe ? ' is-me' : '') + (m.pending ? ' is-pending' : '') + '">' +
         '<div class="msg-avatar" style="background:' + esc(a.color) + '">' + a.emoji + avatarImg(a) + '</div>' +
         '<div class="msg-body">' +
         '<div class="msg-head"><span class="msg-name">' + esc(name) + '</span>' +
-        '<span class="msg-time">' + fmtTime(m.createdAt) + '</span>' +
-        '<button class="msg-save' + (isSaved ? ' on' : '') + '" type="button" data-archive-msg="' + esc(m.id) + '" ' +
-        'aria-label="이 메시지를 DB에 저장">' + (isSaved ? '저장됨' : 'DB저장') + '</button>' +
+        '<span class="msg-time">' + (m.pending ? '보내는 중…' : fmtTime(m.createdAt)) + '</span>' +
+        (m.pending ? '' : '<button class="msg-save' + (isSaved ? ' on' : '') + '" type="button" data-archive-msg="' + esc(m.id) + '" ' +
+        'aria-label="이 메시지를 DB에 저장">' + (isSaved ? '저장됨' : 'DB저장') + '</button>') +
         '</div>' +
         '<div class="msg-bubble">' + esc(m.text) + '</div>' +
         '</div></div>';
@@ -746,12 +973,15 @@
 
   function setRoom(room) {
     state.room = room;
+    markRoomSeen(room);
+    computeUnread();
+    saveMsgCache();
     $$('.subtab').forEach(function (b) {
       var on = b.getAttribute('data-room') === room;
       b.classList.toggle('is-active', on);
       b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
-    renderRoomMeta(); renderRoomPeople(); renderChat();
+    renderRoomMeta(); renderRoomPeople(); renderChat(); renderSubtabs();
     scrollActiveSubtab();
   }
 
@@ -760,21 +990,31 @@
     text = (text || '').trim();
     if (!text) return;
     if (!db) { toast('AI 서버에 연결되지 않았습니다.'); return; }
+    var room = state.room;
     var payload = {
-      roomId: state.room,
+      roomId: room,
       agent: 'boss',
       author: '대장님',
       text: text,
       type: 'text',
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     };
+    var echoId = addEcho(room, text);
+    // 실시간 수신이 끊겼을 때 '보내는 중'이 계속 남지 않도록 안전장치
+    setTimeout(function () {
+      var still = state.messages.some(function (m) { return m.id === echoId; });
+      if (!still) return;
+      dropEcho(echoId); renderChat(); checkNew(true);
+    }, 12000);
     db.collection('messages').add(payload).then(function () {
-      db.collection('rooms').doc(state.room).set({
+      markRoomSeen(room);
+      db.collection('rooms').doc(room).set({
         lastMessageAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true }).catch(function () {});
       if (text.indexOf('@all') >= 0) toast('전원에게 전달했습니다.');
     }).catch(function (err) {
       console.error(err);
+      dropEcho(echoId); renderChat();
       toast('전송 실패: ' + (err.code || '권한 또는 네트워크 확인'));
     });
   }
@@ -817,11 +1057,14 @@
     $('#plusBtn').addEventListener('click', function () { $('#quickRow').hidden = !$('#quickRow').hidden; });
 
     $('#serverPill').addEventListener('click', function () {
-      var t = state.status === 'live' ? 'pickle-office 연결됨 · 실시간 수신 중'
+      var t = state.status === 'live' ? 'pickle-office 연결됨 · 새 글만 증분으로 수신 중'
         : state.status === 'down' ? 'AI 서버 연결 실패 — 보안 규칙 만료(2026-12-26)나 네트워크 확인'
         : '연결 중…';
       toast(t);
     });
+
+    var refreshBtn = $('#refreshBtn');
+    if (refreshBtn) refreshBtn.addEventListener('click', function () { checkNew(false); });
 
     $('#themeBtn').addEventListener('click', function () {
       document.body.classList.toggle('dim');
@@ -987,8 +1230,24 @@
       });
     }
     document.addEventListener('visibilitychange', function () {
-      if (!document.hidden && state.status === 'down' && db && navigator.onLine) setStatus('connecting');
+      if (document.hidden) return;
+      if (!db || !navigator.onLine) return;
+      if (state.status === 'down') setStatus('connecting');
+      checkNew(true);
     });
+
+    /* 확인·검증용 최소 정보(민감값 없음) */
+    window.__officeDebug = {
+      info: function () {
+        return {
+          since: msgSince ? msgSince.toISOString() : null,
+          messages: state.messages.length,
+          unread: state.unread,
+          status: state.status,
+          queries: debugLog.slice()
+        };
+      }
+    };
 
     /* 매니페스트 바로가기: ?room=<방 id>, ?view=memos|agents|db */
     try {
